@@ -60,27 +60,79 @@ import com.packfare.app.domain.Destination
 import com.packfare.app.domain.Destinations
 import com.packfare.app.domain.Money
 import com.packfare.app.domain.TravelStyle
+import com.packfare.app.domain.Theme
+import com.packfare.app.ui.theme.HeroGradient
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 
+/**
+ * Explore is where trip planning starts ("Plan a trip" on the Trips tab lands here): search any place,
+ * pick themes and trip length, get ready-made trips from home with all-in prices, or open a place and
+ * plan around it. "Build your own trip" opens the full planner.
+ */
 @Composable
-fun ExploreScreen(vm: ExploreViewModel, onOpenPlace: (String) -> Unit) {
+fun ExploreScreen(
+    vm: ExploreViewModel,
+    onOpenPlace: (String) -> Unit,
+    onPlanTrip: (stops: List<Pair<String, Int>>, from: String?, style: String?) -> Unit = { _, _, _ -> },
+    onBuildOwn: () -> Unit = {},
+    onResume: (Int) -> Unit = {},
+) {
     val recent by vm.recent.collectAsStateWithLifecycle()
     var region by rememberSaveable { mutableStateOf(Destinations.regions.first()) }
     val requestLocation = rememberLocationRequest(vm::onLocation)
+    var picking by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { vm.refreshSaved() }
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text("Explore")
-                        Text(
-                            "Search any place in India for real backpacker prices",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                },
-            )
+            Column(
+                Modifier.fillMaxWidth().background(HeroGradient).statusBarsPadding()
+                    .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 14.dp),
+            ) {
+                Text("Plan your next trip", color = Color.White, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                Text(
+                    "Search a place, or pick what you're into and we'll suggest trips with all-in prices",
+                    color = Color.White.copy(alpha = 0.85f),
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                Spacer(Modifier.height(10.dp))
+                OutlinedTextField(
+                    value = vm.query,
+                    onValueChange = vm::onQueryChange,
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text("Hampi, Spiti, Ziro, Gokarna…") },
+                    leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+                    trailingIcon = {
+                        if (vm.query.isNotEmpty()) {
+                            IconButton(onClick = { vm.onQueryChange("") }) { Icon(Icons.Filled.Clear, contentDescription = "Clear") }
+                        }
+                    },
+                    singleLine = true,
+                    shape = RoundedCornerShape(14.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedContainerColor = Color.White,
+                        unfocusedContainerColor = Color.White,
+                        focusedTextColor = Color(0xFF1B211D),
+                        unfocusedTextColor = Color(0xFF1B211D),
+                        focusedBorderColor = Color.Transparent,
+                        unfocusedBorderColor = Color.Transparent,
+                        focusedPlaceholderColor = Color(0xFF727A73),
+                        unfocusedPlaceholderColor = Color(0xFF727A73),
+                        focusedLeadingIconColor = Color(0xFF2F6B4F),
+                        unfocusedLeadingIconColor = Color(0xFF2F6B4F),
+                    ),
+                )
+            }
         },
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
     ) { padding ->
@@ -92,25 +144,6 @@ fun ExploreScreen(vm: ExploreViewModel, onOpenPlace: (String) -> Unit) {
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             item {
-                OutlinedTextField(
-                    value = vm.query,
-                    onValueChange = vm::onQueryChange,
-                    modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("Hampi, Spiti, Ziro, Gokarna…") },
-                    leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
-                    trailingIcon = {
-                        if (vm.query.isNotEmpty()) {
-                            IconButton(onClick = { vm.onQueryChange("") }) {
-                                Icon(Icons.Filled.Clear, contentDescription = "Clear")
-                            }
-                        }
-                    },
-                    singleLine = true,
-                )
-            }
-
-            item {
-                var picking by remember { mutableStateOf(false) }
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
                     Text(
                         "Fares from",
@@ -139,17 +172,76 @@ fun ExploreScreen(vm: ExploreViewModel, onOpenPlace: (String) -> Unit) {
                         }
                     }
                 }
-                if (picking) {
-                    CityPickerDialog(
-                        title = "Where do your trips start?",
-                        onPick = { vm.pickHome(it); picking = false },
-                        onClear = if (vm.home != null) ({ vm.pickHome(null); picking = false }) else null,
-                        onDismiss = { picking = false },
-                    )
-                }
             }
 
             if (vm.query.isBlank()) {
+                item { ThemeAndLengthPicker(vm) }
+
+                vm.draft?.let { d ->
+                    item {
+                        Card(
+                            Modifier.fillMaxWidth().padding(top = 8.dp).clickable { onResume(-2) },
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+                        ) {
+                            Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Column(Modifier.weight(1f)) {
+                                    Text("Continue planning", style = MaterialTheme.typography.labelLarge)
+                                    Text(d.name.ifBlank { d.title }, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Text(d.subtitle, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                }
+                                Button(onClick = { onResume(-2) }) { Text("Resume") }
+                            }
+                        }
+                    }
+                }
+                if (vm.recentSearches.isNotEmpty()) {
+                    item { Header("Your recent searches") }
+                    items(vm.recentSearches.take(3).withIndex().toList(), key = { "rs-${it.index}" }) { (i, rs) ->
+                        PlaceRow(title = "🕘 ${rs.title}", subtitle = rs.subtitle, onClick = { onResume(i) })
+                    }
+                }
+
+                item {
+                    Header(vm.home?.let { "Suggested trips from ${it.name}" } ?: "Suggested trips")
+                }
+                item {
+                    val home = vm.home
+                    if (home == null) {
+                        Card(Modifier.fillMaxWidth()) {
+                            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text("Where do your trips start? We'll suggest routes with fares there and back included.")
+                                Button(onClick = { picking = true }) { Text("🏠 Set your home city") }
+                            }
+                        }
+                    } else {
+                        val trips = remember(home.name, vm.tripNights, vm.themes, vm.style, vm.travelPref) { vm.suggestedTrips() }
+                        if (trips.isEmpty()) {
+                            Text("No trips match. Try other themes or a different length.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            trips.forEach { t ->
+                                SuggestedTripCard(t, onPlan = {
+                                    onPlanTrip(t.stops.map { it.destination.name to it.nights }, home.name, vm.style.name)
+                                })
+                            }
+                        }
+                    }
+                }
+                item {
+                    OutlinedButton(onClick = onBuildOwn, modifier = Modifier.fillMaxWidth().padding(top = 8.dp)) {
+                        Text("🧭 Build your own trip (pick every stop)")
+                    }
+                }
+
+                val themed = vm.themedPlaces()
+                if (themed.isNotEmpty()) {
+                    item { Header("Places for ${vm.themes.joinToString { it.label.lowercase() }}") }
+                    items(themed, key = { "theme-${it.name}" }) { d ->
+                        DestinationRow(d, vm.home, vm.style, vm.travelPref, onClick = { onOpenPlace(d.wikivoyage) })
+                    }
+                }
+
+                item { Header("Map") }
                 item {
                     val pins = remember {
                         Destinations.all.map { d ->
@@ -246,6 +338,68 @@ fun ExploreScreen(vm: ExploreViewModel, onOpenPlace: (String) -> Unit) {
                 }
                 if (!vm.searching && vm.webHits.isEmpty() && vm.query.trim().length >= 3 && vm.error == null) {
                     item { Text("No articles found.", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                }
+            }
+        }
+    }
+
+    if (picking) {
+        CityPickerDialog(
+            title = "Where do your trips start?",
+            onPick = { vm.pickHome(it); picking = false },
+            onClear = if (vm.home != null) ({ vm.pickHome(null); picking = false }) else null,
+            onDismiss = { picking = false },
+        )
+    }
+}
+
+/** Themes, trip length, and the style/transport chips that shape every suggestion and price. */
+@Composable
+private fun ThemeAndLengthPicker(vm: ExploreViewModel) {
+    Column(Modifier.padding(top = 10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text("What are you into?", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Theme.entries.forEach { t ->
+                FilterChip(selected = t in vm.themes, onClick = { vm.toggleTheme(t) }, label = { Text("${t.emoji} ${t.label}") })
+            }
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Trip length", Modifier.weight(1f), style = MaterialTheme.typography.titleSmall)
+            FilledTonalButton(onClick = { vm.changeTripNights(-1) }, enabled = vm.tripNights > 2) { Text("−") }
+            Text("${vm.tripNights} nights", Modifier.width(84.dp), textAlign = TextAlign.Center, fontWeight = FontWeight.Medium)
+            FilledTonalButton(onClick = { vm.changeTripNights(+1) }, enabled = vm.tripNights < 30) { Text("+") }
+        }
+    }
+}
+
+/** A ready-made trip: theme, route, nights and the all-in price per person. */
+@Composable
+private fun SuggestedTripCard(t: SuggestedTrip, onPlan: () -> Unit) {
+    val b = t.budget
+    Card(Modifier.fillMaxWidth().clickable(onClick = onPlan), shape = RoundedCornerShape(20.dp)) {
+        Column {
+            Box(Modifier.fillMaxWidth().background(HeroGradient).padding(horizontal = 16.dp, vertical = 12.dp)) {
+                Column {
+                    Text("${t.theme.emoji} ${t.theme.label}", color = Color.White, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text("${b.days} nights · ${t.stops.size} stop${if (t.stops.size == 1) "" else "s"}", color = Color.White.copy(alpha = 0.85f), style = MaterialTheme.typography.bodySmall)
+                }
+            }
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(
+                    t.stops.joinToString("  →  ") { "${it.destination.name} (${it.nights}n)" },
+                    fontWeight = FontWeight.Medium,
+                )
+                val transport = b.legs.map { it.option.mode }.distinct().joinToString(" ") { it.emoji }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(Modifier.weight(1f)) {
+                        Text("≈ ${Money.format(b.perPersonPaise)} per person", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text(
+                            "All in: $transport fares there & back, ${b.style.label.lowercase()} stays, food, sights",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Button(onClick = onPlan) { Text("Plan this") }
                 }
             }
         }

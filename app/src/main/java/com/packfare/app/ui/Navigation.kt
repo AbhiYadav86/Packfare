@@ -44,7 +44,7 @@ private object Routes {
     const val TRIP = "trip/{tripId}"
     const val EXPENSE = "trip/{tripId}/expense?expenseId={expenseId}&scan={scan}"
     const val PLACE = "place/{title}"
-    const val PLAN = "plan?stops={stops}&days={days}&budget={budget}&from={from}"
+    const val PLAN = "plan?stops={stops}&days={days}&budget={budget}&from={from}&resume={resume}&style={style}"
     const val DOC = "doc/{docId}"
     const val FARES = "fares?from={from}&to={to}&date={date}"
 
@@ -52,8 +52,16 @@ private object Routes {
     fun expense(tripId: Long, expenseId: Long? = null, scan: Boolean = false) =
         "trip/$tripId/expense?expenseId=${expenseId ?: -1L}&scan=$scan"
     fun place(title: String) = "place/${Uri.encode(title)}"
-    fun plan(stops: List<String> = emptyList(), days: Int = -1, budgetPaise: Long = -1, from: String? = null) =
-        "plan?stops=${Uri.encode(stops.joinToString("|"))}&days=$days&budget=$budgetPaise&from=${Uri.encode(from.orEmpty())}"
+    /** [stops] may carry nights as "Manali~3". [resume]: -2 draft, 0.. recent search, -1 none. */
+    fun plan(
+        stops: List<String> = emptyList(),
+        days: Int = -1,
+        budgetPaise: Long = -1,
+        from: String? = null,
+        resume: Int = -1,
+        style: String? = null,
+    ) = "plan?stops=${Uri.encode(stops.joinToString("|"))}&days=$days&budget=$budgetPaise&from=${Uri.encode(from.orEmpty())}" +
+        "&resume=$resume&style=${Uri.encode(style.orEmpty())}"
     fun doc(id: Long) = "doc/$id"
     fun fares(from: String = "", to: String = "", epochDay: Long? = null) =
         "fares?from=${Uri.encode(from)}&to=${Uri.encode(to)}&date=${epochDay ?: -1L}"
@@ -77,14 +85,21 @@ fun PackfareNavHost(app: PackfareApp) {
                         TripListScreen(
                             vm,
                             onOpenTrip = { nav.navigate(Routes.trip(it)) },
-                            onPlanTrip = { nav.navigate(Routes.plan()) },
+                            // Trip planning starts in Explore: themes, suggested trips, places.
+                            onPlanTrip = { tab = HomeTab.EXPLORE },
                         )
                     }
                     HomeTab.EXPLORE -> {
                         val vm: ExploreViewModel = viewModel(
                             factory = viewModelFactory { initializer { ExploreViewModel(app.explore, app.prefs) } },
                         )
-                        ExploreScreen(vm, onOpenPlace = { nav.navigate(Routes.place(it)) })
+                        ExploreScreen(
+                            vm,
+                            onOpenPlace = { nav.navigate(Routes.place(it)) },
+                            onPlanTrip = { stops, from, style -> nav.navigate(Routes.plan(stops.map { (n, k) -> "$n~$k" }, from = from, style = style)) },
+                            onBuildOwn = { nav.navigate(Routes.plan()) },
+                            onResume = { index -> nav.navigate(Routes.plan(resume = index)) },
+                        )
                     }
                     HomeTab.FARES -> {
                         val vm: FareSearchViewModel = viewModel(
@@ -163,16 +178,20 @@ fun PackfareNavHost(app: PackfareApp) {
                 navArgument("days") { type = NavType.IntType; defaultValue = -1 },
                 navArgument("budget") { type = NavType.LongType; defaultValue = -1L },
                 navArgument("from") { type = NavType.StringType; defaultValue = "" },
+                navArgument("resume") { type = NavType.IntType; defaultValue = -1 },
+                navArgument("style") { type = NavType.StringType; defaultValue = "" },
             ),
         ) { entry ->
             val args = entry.arguments!!
+            val resume = args.getInt("resume")
+            val style = args.getString("style").orEmpty().ifBlank { null }?.let { com.packfare.app.domain.TravelStyle.fromName(it) }
             val stops = args.getString("stops").orEmpty().split("|").filter { it.isNotBlank() }
             val days = args.getInt("days").takeIf { it > 0 }
             val budget = args.getLong("budget").takeIf { it > 0 }
             val from = args.getString("from").orEmpty().ifBlank { null }
             val vm: PlanTripViewModel = viewModel(
                 factory = viewModelFactory {
-                    initializer { PlanTripViewModel(repository, app.explore, app.fares, app.prefs, stops, days, budget, from) }
+                    initializer { PlanTripViewModel(repository, app.explore, app.fares, app.prefs, stops, days, budget, from, resume, style) }
                 },
             )
             PlanTripScreen(

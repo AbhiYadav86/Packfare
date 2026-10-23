@@ -26,7 +26,7 @@ fun TravelPrefChips(selected: TravelPref, onSelect: (TravelPref) -> Unit, title:
             when (selected) {
                 TravelPref.BEST -> "Packfare weighs price, time and comfort for each leg."
                 TravelPref.AIR -> "Flights wherever both ends have an airport (incl. getting to and from it)."
-                TravelPref.TRAIN -> "3AC trains wherever there's a railway; road where there isn't."
+                TravelPref.TRAIN -> "AC trains wherever there's a railway (3AC, 2AC or 1AC to suit your style); road where there isn't."
                 TravelPref.BUS -> "AC buses (shared jeeps in the hills); trains or flights for very long hops."
             } + " Nothing below 3AC.",
             style = MaterialTheme.typography.bodySmall,

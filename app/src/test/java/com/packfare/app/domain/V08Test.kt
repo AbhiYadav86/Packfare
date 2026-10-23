@@ -118,3 +118,36 @@ class V09Test {
         assertTrue(stays.contains("checkin=2026-11-20") && stays.contains("checkout=2026-11-23") && stays.contains("group_adults=2"))
     }
 }
+
+class V010Test {
+    private fun d(name: String) = Destinations.find(name)!!
+
+    @Test
+    fun `trains come in 3AC, 2AC and 1AC with sensible prices`() {
+        val opts = FareEstimator.options(d("Delhi"), d("Varanasi"))
+        val f = { m: TransportMode -> opts.first { it.mode == m }.farePaise }
+        assertTrue(f(TransportMode.TRAIN_AC) < f(TransportMode.TRAIN_2AC) && f(TransportMode.TRAIN_2AC) < f(TransportMode.TRAIN_1AC))
+        assertTrue(f(TransportMode.TRAIN_2AC) in 1_500_00L..2_600_00L)
+        assertTrue(f(TransportMode.TRAIN_1AC) in 2_600_00L..4_200_00L)
+        assertTrue(opts.none { !it.mode.offered })
+    }
+
+    @Test
+    fun `train lovers get the class that suits their style`() {
+        val stops = listOf(PlanStop(d("Varanasi"), 2))
+        fun cls(style: TravelStyle) = BudgetPlanner.suggest(stops, style, origin = d("Delhi"), pref = TravelPref.TRAIN).legs.first().option.mode
+        assertEquals(TransportMode.TRAIN_AC, cls(TravelStyle.BACKPACKER))
+        assertEquals(TransportMode.TRAIN_2AC, cls(TravelStyle.COMFORT))
+        assertEquals(TransportMode.TRAIN_1AC, cls(TravelStyle.PREMIUM))
+    }
+
+    @Test
+    fun `themes cover the extra towns and suggested trips exist for each theme`() {
+        assertTrue(Theme.MOUNTAINS in Themes.of(d("Kullu")))
+        assertTrue(Theme.BEACHES in Themes.of(d("Diglipur")))
+        listOf(Theme.MOUNTAINS, Theme.BEACHES, Theme.HERITAGE, Theme.NATURE).forEach { t ->
+            val stops = ItineraryBuilder.suggestStops(d("Bengaluru"), 7, setOf(t), emptySet(), Pace.STEADY, TravelStyle.BACKPACKER)
+            assertTrue(stops.isNotEmpty() && stops.sumOf { it.nights } == 7)
+        }
+    }
+}

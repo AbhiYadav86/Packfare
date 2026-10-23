@@ -19,11 +19,13 @@ enum class TravelStyle(
     val timeValuePaisePerHour: Long,
     /** Avoids non-AC sleeper trains, ordinary buses and shared jeeps when there's a decent alternative. */
     val prefersAc: Boolean,
+    /** Train class this style books by default: 3AC, 2AC or 1AC (never below 3AC). */
+    val trainClass: TransportMode,
 ) {
-    BACKPACKER("Backpacker", "Dorm beds, dhabas & cafés, local buses", false, 1.0, 1.0, 1.0, 6_000, false),
-    FLASHPACKER("Budget hotel", "1–2★ private rooms, cafés, AC buses & autos", true, 1.6, 1.4, 1.5, 15_000, false),
-    COMFORT("3★ comfort", "3-star hotels, restaurants, AC trains & cabs", true, 2.2, 2.2, 2.0, 30_000, true),
-    PREMIUM("4★ premium", "4-star hotels, good restaurants, flights & cabs", true, 3.0, 3.0, 2.5, 60_000, true);
+    BACKPACKER("Backpacker", "Dorm beds, dhabas & cafés, 3AC trains & AC buses", false, 1.0, 1.0, 1.0, 6_000, false, TransportMode.TRAIN_AC),
+    FLASHPACKER("Budget hotel", "1–2★ private rooms, cafés, 3AC trains, AC buses & autos", true, 1.6, 1.4, 1.5, 15_000, false, TransportMode.TRAIN_AC),
+    COMFORT("3★ comfort", "3-star hotels, restaurants, 2AC trains & cabs", true, 2.2, 2.2, 2.0, 30_000, true, TransportMode.TRAIN_2AC),
+    PREMIUM("4★ premium", "4-star hotels, good restaurants, 1AC trains, flights & cabs", true, 3.0, 3.0, 2.5, 60_000, true, TransportMode.TRAIN_1AC);
 
     companion object {
         fun fromName(name: String?): TravelStyle = entries.firstOrNull { it.name == name } ?: BACKPACKER

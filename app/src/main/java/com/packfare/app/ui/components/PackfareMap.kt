@@ -230,11 +230,11 @@ private const val LABELS_LAYER = "pf-pins-labels"
 private const val ROUTE_LAYER = "pf-route-line"
 private const val ME_LAYER = "pf-me-dot"
 
-/** Pin colours by cost tier: green cheap, saffron mid, pink pricey. */
+/** Pin colours by cost tier: green cheap, ochre mid, red earth pricey. */
 object PinColors {
-    val low = Color(0xFF15803D)
-    val mid = Color(0xFFE8702A)
-    val high = Color(0xFFB0226A)
-    val stop = Color(0xFFC2500F)
+    val low = Color(0xFF2E8B57)   // leaf green
+    val mid = Color(0xFFC98A2B)   // ochre
+    val high = Color(0xFFB04A3A)  // red earth
+    val stop = Color(0xFF1D3F6E)  // deep lake blue
     val faded = Color(0xFF9E9E9E)
 }

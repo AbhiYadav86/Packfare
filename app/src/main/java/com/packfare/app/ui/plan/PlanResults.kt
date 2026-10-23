@@ -247,7 +247,7 @@ private fun PlanMap(vm: PlanTripViewModel) {
         else MapPin(d.wikivoyage, d.lat, d.lon, PinColors.stop, label = d.name, number = i + 1, radius = 10f)
     }
     val origin = vm.origin
-    val homePin = origin?.let { MapPin("home:${it.name}", it.lat, it.lon, Color(0xFF1A73E8), label = "🏠 ${it.name}", radius = 8f) }
+    val homePin = origin?.let { MapPin("home:${it.name}", it.lat, it.lon, Color(0xFF2B6CA3), label = "🏠 ${it.name}", radius = 8f) }
     val line = buildList {
         homePin?.let { add(it.lat to it.lon) }
         addAll(stopPins.map { it.lat to it.lon })

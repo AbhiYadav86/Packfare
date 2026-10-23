@@ -73,7 +73,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          VERSION="0.9.${GITHUB_RUN_NUMBER}"
+          BASE=$(grep -oP 'baseVersionName = "\K[^"]+' app/build.gradle.kts)
+          VERSION="${BASE}.${GITHUB_RUN_NUMBER}"
           cp app/build/outputs/apk/debug/app-debug.apk "Packfare-v${VERSION}.apk"
           NOTES=$(git log -1 --pretty=format:'%s%n%n%b' | grep -v -E '^(Co-Authored-By|Claude-Session):')
           # 1) A permanent, numbered release for this exact build (never overwritten)
@@ -87,4 +88,4 @@ jobs:
           gh release create packfare-latest Packfare.apk \
             --target "${GITHUB_SHA}" --prerelease \
             --title "Packfare (latest build) — v${VERSION}" \
-            --notes "Always the newest build from main. Older versions are listed on the Releases page as v0.9.x."
+            --notes "Always the newest build from main. Older versions are listed on the Releases page."

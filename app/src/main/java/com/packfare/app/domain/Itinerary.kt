@@ -86,7 +86,11 @@ object Themes {
         "Itanagar" to setOf(M), "Agatti (Lakshadweep)" to setOf(B, N),
     )
 
-    fun of(d: Destination): Set<Theme> = tags[d.name].orEmpty()
+    /** Hand-tagged hubs; for the other towns, hills mean mountains and islands mean beaches. */
+    fun of(d: Destination): Set<Theme> = tags[d.name] ?: buildSet {
+        if (d.hills) add(M)
+        if (d.island) { add(B); add(N) }
+    }
 }
 
 /** One day of the plan. [travel] is set on days you move between places. */

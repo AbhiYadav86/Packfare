@@ -14,6 +14,8 @@ import kotlin.math.sqrt
 enum class TransportMode(val label: String, val emoji: String, val offered: Boolean = true) {
     TRAIN_SLEEPER("Sleeper train", "🚆", offered = false),
     TRAIN_AC("3AC train", "🚆"),
+    TRAIN_2AC("2AC train", "🚆"),
+    TRAIN_1AC("1AC train", "🚆"),
     BUS_STATE("State bus", "🚌", offered = false),
     BUS_AC_SLEEPER("AC bus", "🚌"),
     SHARED_JEEP("Shared jeep/taxi", "🚙"),
@@ -22,6 +24,9 @@ enum class TransportMode(val label: String, val emoji: String, val offered: Bool
     OTHER("Other", "🧭");
 
     companion object {
+        /** Train classes Packfare offers, cheapest first (nothing below 3AC). */
+        val TRAIN_CLASSES: List<TransportMode> by lazy { listOf(TRAIN_AC, TRAIN_2AC, TRAIN_1AC) }
+
         fun fromName(name: String?): TransportMode = entries.firstOrNull { it.name == name } ?: OTHER
     }
 }
@@ -30,12 +35,24 @@ enum class TransportMode(val label: String, val emoji: String, val offered: Bool
 enum class TravelPref(val label: String, val emoji: String, val modes: Set<TransportMode>) {
     BEST("Best value", "⭐", emptySet()),
     AIR("Air", "✈️", setOf(TransportMode.FLIGHT)),
-    TRAIN("Train", "🚆", setOf(TransportMode.TRAIN_AC)),
+    TRAIN("Train", "🚆", TransportMode.TRAIN_CLASSES.toSet()),
     BUS("Bus", "🚌", setOf(TransportMode.BUS_AC_SLEEPER, TransportMode.SHARED_JEEP));
 
-    /** The cheapest option in the preferred mode, or null when there's none on this route (fall back to best). */
-    fun pick(options: List<RouteOption>): RouteOption? =
-        if (this == BEST) null else options.filter { it.mode in modes }.minByOrNull { it.farePaise }
+    /**
+     * The preferred mode's option, or null when the route doesn't have it (fall back to best).
+     * Trains use the class that suits the travel style (3AC, 2AC or 1AC); otherwise the cheapest.
+     */
+    fun pick(options: List<RouteOption>, style: TravelStyle = TravelStyle.BACKPACKER): RouteOption? {
+        if (this == BEST) return null
+        val inMode = options.filter { it.mode in modes }
+        if (this == TRAIN) {
+            inMode.firstOrNull { it.mode == style.trainClass }?.let { return it }
+            // That class isn't on this route: the nearest class below it, else whatever runs.
+            return inMode.filter { TransportMode.TRAIN_CLASSES.indexOf(it.mode) <= TransportMode.TRAIN_CLASSES.indexOf(style.trainClass) }
+                .maxByOrNull { TransportMode.TRAIN_CLASSES.indexOf(it.mode) } ?: inMode.minByOrNull { it.farePaise }
+        }
+        return inMode.minByOrNull { it.farePaise }
+    }
 
     companion object {
         fun fromName(name: String?): TravelPref = entries.firstOrNull { it.name == name } ?: BEST
@@ -77,6 +94,9 @@ object FareEstimator {
 
     private val rates = mapOf(
         TransportMode.TRAIN_AC to Rate(165, 30_000, 65.0, 32.0),
+        // 2AC ≈ 1.45× and 1AC ≈ 2.4× the 3AC fare (Delhi–Varanasi ≈ ₹1,350 / ₹1,950 / ₹3,300).
+        TransportMode.TRAIN_2AC to Rate(240, 45_000, 65.0, 32.0),
+        TransportMode.TRAIN_1AC to Rate(400, 1_00_000, 65.0, 32.0),
         TransportMode.BUS_AC_SLEEPER to Rate(250, 25_000, 50.0, 32.0),
         TransportMode.SHARED_JEEP to Rate(300, 20_000, 40.0, 32.0),
     )
@@ -119,7 +139,7 @@ object FareEstimator {
         return RouteChoices(
             cheapest = all.minBy { it.farePaise },
             fastest = all.minBy { it.hours },
-            best = pref.pick(all) ?: all.minBy { score(it, to, style) },
+            best = pref.pick(all, style) ?: all.minBy { score(it, to, style) },
             all = all.sortedBy { it.farePaise },
         )
     }
@@ -147,7 +167,12 @@ object FareEstimator {
         }
 
         // Nothing priced below 3AC: no sleeper class, no ordinary state buses.
-        if (from.rail && to.rail) result += ground(TransportMode.TRAIN_AC, railKm, hills)
+        if (from.rail && to.rail) {
+            result += ground(TransportMode.TRAIN_AC, railKm, hills)
+            result += ground(TransportMode.TRAIN_2AC, railKm, hills)
+            // First class runs on fewer, longer-distance trains.
+            if (railKm >= 150) result += ground(TransportMode.TRAIN_1AC, railKm, hills)
+        }
         if (roadKm <= 1_500.0) result += ground(TransportMode.BUS_AC_SLEEPER, roadKm, hills)
         if (hills && roadKm < 400) result += ground(TransportMode.SHARED_JEEP, roadKm, hills)
         flightOption(from, to)?.let { result += it }
@@ -171,7 +196,10 @@ object FareEstimator {
     private fun score(o: RouteOption, to: Destination, style: TravelStyle): Long {
         val timeCost = (o.hours * style.timeValuePaisePerHour).roundToLong()
         val saved = if (o.overnight) to.baseline.forStyle(style).stayPaise else 0L
-        val comfortPenalty = if (style.prefersAc && o.mode in basicModes) 1_50_000L else 0L
+        val comfortPenalty = (if (style.prefersAc && o.mode in basicModes) 1_50_000L else 0L) +
+            // A train class below what the style expects (3AC for a 4★ traveller) counts as less comfortable.
+            (if (o.mode in TransportMode.TRAIN_CLASSES &&
+                TransportMode.TRAIN_CLASSES.indexOf(o.mode) < TransportMode.TRAIN_CLASSES.indexOf(style.trainClass)) 1_00_000L else 0L)
         return o.farePaise + timeCost - saved + comfortPenalty
     }
 

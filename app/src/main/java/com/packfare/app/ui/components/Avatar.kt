@@ -15,7 +15,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 private val avatarColors = listOf(
-    Color(0xFFC2500F), Color(0xFF006A6A), Color(0xFFB0226A), Color(0xFF5B5BD6),
+    Color(0xFF2F6B4F), Color(0xFF2B6CA3), Color(0xFF9A5B34), Color(0xFF5B5BD6),
     Color(0xFF15803D), Color(0xFFB45309), Color(0xFF0369A1), Color(0xFF7C3AED),
 )
 

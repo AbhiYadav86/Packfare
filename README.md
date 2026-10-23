@@ -13,6 +13,24 @@ with travel buddies, scans receipts and keeps travel documents in an encrypted v
 Unit tests (split maths, receipt reading, budget planner, fares, runway, cash, Wikivoyage parsing):
 right-click `app/src/test` > Run Tests, or `./gradlew test`.
 
+## What's new in v0.10
+
+- **Plan a trip starts in Explore.** The "Plan a trip" button on the Trips tab opens Explore, now the
+  planning hub:
+  - Search any place from the header, or pick **what you're into** (🏔️ Mountains, 🏖️ Beaches, 🏰 Heritage,
+    🛕 Spiritual, 🌿 Nature, 🍜 Food & city) and a **trip length**.
+  - **Suggested trips from your home city**: one ready-made route per theme with stops, nights and an
+    all-in price per person (fares there and back, stays in your style, food, sights). "Plan this" opens it
+    in the planner's results tabs.
+  - **Places for your themes**, closest first, plus "Continue planning" and your recent searches.
+  - **Build your own trip** opens the full search page for hand-picked stops.
+  - From any place page, "Plan a trip here" continues the same way.
+- **More train classes: 3AC, 2AC and 1AC** (still nothing below 3AC). Each travel style books a class by
+  default: Backpacker and Budget hotel 3AC, 3★ comfort 2AC, 4★ premium 1AC. Every leg shows all classes
+  as options with their prices.
+- **New look:** forest green, lake blue and terracotta replace saffron, in light and dark mode, on hero
+  headers, maps and the app icon.
+
 ## What's new in v0.9
 
 - **Plan a trip, travel-website style.**

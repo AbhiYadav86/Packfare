@@ -100,7 +100,7 @@ object BookingLinks {
     private val human = DateTimeFormatter.ofPattern("d MMM yyyy")
 
     fun forMode(mode: TransportMode, from: Destination, to: Destination, date: LocalDate): String = when (mode) {
-        TransportMode.TRAIN_SLEEPER, TransportMode.TRAIN_AC -> IRCTC
+        TransportMode.TRAIN_SLEEPER, TransportMode.TRAIN_AC, TransportMode.TRAIN_2AC, TransportMode.TRAIN_1AC -> IRCTC
         TransportMode.BUS_STATE, TransportMode.BUS_AC_SLEEPER -> redBus(from.name, to.name)
         TransportMode.FLIGHT -> googleFlights(from, to, date)
         else -> google("${mode.label} from ${from.name} to ${to.name} ${date.format(human)}")
@@ -175,13 +175,13 @@ object BookingLinks {
      */
     fun groundLinks(mode: TransportMode, from: Destination, to: Destination, date: LocalDate, foreignVisitor: Boolean): List<Pair<String, String>> {
         val local = when (mode) {
-            TransportMode.TRAIN_SLEEPER, TransportMode.TRAIN_AC -> "IRCTC" to IRCTC
+            TransportMode.TRAIN_SLEEPER, TransportMode.TRAIN_AC, TransportMode.TRAIN_2AC, TransportMode.TRAIN_1AC -> "IRCTC" to IRCTC
             TransportMode.BUS_STATE, TransportMode.BUS_AC_SLEEPER -> "redBus" to redBus(from.name, to.name)
             TransportMode.FERRY -> "Ferry times" to google("ferry ${from.name} to ${to.name}")
             else -> "Search" to google("${mode.label} from ${from.name} to ${to.name} ${date.format(human)}")
         }
         val twelve = "12Go" to twelveGo(from, to, date)
-        val offersTwelveGo = mode in setOf(TransportMode.TRAIN_AC, TransportMode.BUS_AC_SLEEPER, TransportMode.TRAIN_SLEEPER, TransportMode.BUS_STATE)
+        val offersTwelveGo = mode in TransportMode.TRAIN_CLASSES || mode in setOf(TransportMode.BUS_AC_SLEEPER, TransportMode.TRAIN_SLEEPER, TransportMode.BUS_STATE)
         return when {
             !offersTwelveGo -> listOf(local)
             foreignVisitor -> listOf(twelve, local)

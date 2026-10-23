@@ -58,9 +58,13 @@ class PlanTripViewModel(
     initialDays: Int?,
     initialBudgetPaise: Long?,
     initialFrom: String?,
+    /** From Explore: -2 = resume the draft, 0..5 = run that recent search, -1 = nothing. */
+    resume: Int = -1,
+    /** From Explore's suggested trips: style and transport to plan with. */
+    initialStyle: TravelStyle? = null,
 ) : ViewModel() {
 
-    var phase by mutableStateOf(if (initialStops.isNotEmpty()) PlanPhase.RESULTS else PlanPhase.SEARCH)
+    var phase by mutableStateOf(if (initialStops.isNotEmpty() || resume != -1) PlanPhase.RESULTS else PlanPhase.SEARCH)
     var name by mutableStateOf("")
     var myName by mutableStateOf(prefs.travellerName.orEmpty())
     var startDate by mutableStateOf(LocalDate.now().plusDays(7))
@@ -149,15 +153,22 @@ class PlanTripViewModel(
     private var creating = false
 
     init {
-        viewModelScope.launch {
-            val nightsEach = if (initialDays != null && initialStops.isNotEmpty()) {
-                (initialDays / initialStops.size).coerceAtLeast(1)
-            } else {
-                3
+        initialStyle?.let { style = it }
+        // Stops may carry their nights ("Manali~3"); otherwise share the days out evenly.
+        val parsed = initialStops.map { s ->
+            val name = s.substringBefore('~')
+            name to s.substringAfter('~', "").toIntOrNull()
+        }
+        val nightsEach = if (initialDays != null && parsed.isNotEmpty()) (initialDays / parsed.size).coerceAtLeast(1) else 3
+        when {
+            resume == -2 -> prefs.draft?.let { applySearch(it, resume = true) } ?: run { phase = PlanPhase.SEARCH }
+            resume >= 0 -> prefs.recentSearches.getOrNull(resume)?.let { applySearch(it, resume = false) } ?: run { phase = PlanPhase.SEARCH }
+            else -> viewModelScope.launch {
+                parsed.forEach { (n, nights) -> addStopByName(n, nights ?: nightsEach) }
+                if (stops.isNotEmpty()) suggestNights = stops.sumOf { it.nights }
+                if (name.isBlank() && stops.isNotEmpty()) name = defaultName()
+                if (stops.isNotEmpty()) showResults() else loadHighlights(allowNetwork = false)
             }
-            initialStops.forEach { addStopByName(it, nightsEach) }
-            if (name.isBlank() && stops.isNotEmpty()) name = defaultName()
-            loadHighlights(allowNetwork = false)
         }
     }
 

@@ -23,10 +23,13 @@ android {
         applicationId = "com.packfare.app"
         minSdk = 26
         targetSdk = 35
-        // CI builds number themselves from the GitHub run (0.9.<run>); local builds stay 0.9.0
+        // Base version: change these two when you start a new version (e.g. 0.11).
+        // GitHub builds add the run number: 0.10.<run>; local builds stay 0.10.0.
+        val baseVersionCode = 10
+        val baseVersionName = "0.10"
         val ciRun = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull()
-        versionCode = 9 + (ciRun ?: 0)
-        versionName = if (ciRun != null) "0.9.$ciRun" else "0.9.0"
+        versionCode = baseVersionCode + (ciRun ?: 0)
+        versionName = if (ciRun != null) "$baseVersionName.$ciRun" else "$baseVersionName.0"
 
         buildConfigField("String", "TRAVELPAYOUTS_TOKEN", "\"${localProps.getProperty("travelpayouts.token", "")}\"")
         buildConfigField("String", "TRAVELPAYOUTS_MARKER", "\"${localProps.getProperty("travelpayouts.marker", "")}\"")

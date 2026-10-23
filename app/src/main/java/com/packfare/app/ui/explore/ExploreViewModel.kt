@@ -24,12 +24,19 @@ import com.packfare.app.domain.PlanStop
 import com.packfare.app.domain.TransportMode
 import com.packfare.app.domain.TravelStyle
 import com.packfare.app.domain.TravelPref
+import com.packfare.app.domain.Theme
+import com.packfare.app.domain.Themes
+import com.packfare.app.domain.Pace
+import com.packfare.app.domain.ItineraryBuilder
 import com.packfare.app.fares.FareSearch
 import com.packfare.app.fares.FlightOptions
 import com.packfare.app.domain.FareEstimator
 import com.packfare.app.domain.RouteOption
 import com.packfare.app.util.Prefs
 import java.time.LocalDate
+
+/** A ready-made trip idea on the Explore screen. */
+data class SuggestedTrip(val theme: Theme, val stops: List<PlanStop>, val budget: BudgetSuggestion)
 
 class ExploreViewModel(private val repo: ExploreRepository, private val prefs: Prefs? = null) : ViewModel() {
 
@@ -52,6 +59,58 @@ class ExploreViewModel(private val repo: ExploreRepository, private val prefs: P
     fun pickHome(d: Destination?) {
         home = d
         prefs?.homeCity = d?.name
+    }
+
+    // ---- Trip planning starts here ----
+
+    /** "What are you into?" Filters places and shapes the suggested trips. */
+    var themes by mutableStateOf<Set<Theme>>(emptySet())
+        private set
+    var tripNights by mutableStateOf(7)
+        private set
+
+    fun toggleTheme(t: Theme) {
+        themes = if (t in themes) themes - t else themes + t
+    }
+
+    fun changeTripNights(delta: Int) {
+        tripNights = (tripNights + delta).coerceIn(2, 30)
+    }
+
+    /** Unfinished plan and recent searches from the planner (re-read when Explore is shown). */
+    var draft by mutableStateOf(prefs?.draft)
+        private set
+    var recentSearches by mutableStateOf(prefs?.recentSearches.orEmpty())
+        private set
+
+    fun refreshSaved() {
+        draft = prefs?.draft
+        recentSearches = prefs?.recentSearches.orEmpty()
+    }
+
+    /**
+     * Ready-made trips from home: one per chosen theme (or mountains, beaches, heritage and nature),
+     * each with stops, nights and an all-in budget per person including fares there and back.
+     */
+    fun suggestedTrips(): List<SuggestedTrip> {
+        val start = home ?: return emptyList()
+        val wanted = themes.ifEmpty { setOf(Theme.MOUNTAINS, Theme.BEACHES, Theme.HERITAGE, Theme.NATURE) }.take(4)
+        return wanted.mapNotNull { t ->
+            val stops = ItineraryBuilder.suggestStops(start, tripNights, setOf(t), emptySet(), Pace.STEADY, style)
+            if (stops.isEmpty()) return@mapNotNull null
+            val budget = BudgetPlanner.suggest(stops, style, origin = start, returnTo = start, pref = travelPref)
+            SuggestedTrip(t, stops, budget)
+        }.distinctBy { it.stops.map { s -> s.destination.name } }
+    }
+
+    /** Places matching the chosen themes, closest to home first. */
+    fun themedPlaces(limit: Int = 12): List<Destination> {
+        if (themes.isEmpty()) return emptyList()
+        val from = home
+        return Destinations.all
+            .filter { d -> Themes.of(d).any { it in themes } }
+            .sortedBy { d -> from?.let { FareEstimator.haversineKm(it.lat, it.lon, d.lat, d.lon) } ?: 0.0 }
+            .take(limit)
     }
 
     var query by mutableStateOf("")
