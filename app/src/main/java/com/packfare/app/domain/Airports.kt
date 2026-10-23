@@ -1,0 +1,137 @@
+package com.packfare.app.domain
+
+/** An airport with scheduled flights. [regional] = few, pricier flights (small aircraft, UDAN routes). */
+data class Airport(val code: String, val name: String, val lat: Double, val lon: Double, val regional: Boolean = false)
+
+/**
+ * Airports used by [Destinations]. Coordinates are approximate (±2 km), used to estimate the
+ * ground transfer between town and airport, which matters a lot for hill towns.
+ */
+object Airports {
+    private val list = listOf(
+        // Metros & big hubs
+        Airport("DEL", "Delhi", 28.556, 77.100),
+        Airport("BOM", "Mumbai", 19.089, 72.868),
+        Airport("BLR", "Bengaluru", 13.199, 77.706),
+        Airport("MAA", "Chennai", 12.994, 80.171),
+        Airport("CCU", "Kolkata", 22.654, 88.447),
+        Airport("HYD", "Hyderabad", 17.240, 78.429),
+        Airport("AMD", "Ahmedabad", 23.077, 72.635),
+        Airport("PNQ", "Pune", 18.582, 73.920),
+        Airport("COK", "Kochi", 10.152, 76.402),
+        Airport("GOI", "Goa Dabolim", 15.381, 73.831),
+        Airport("GOX", "Goa Mopa", 15.744, 73.861),
+        Airport("JAI", "Jaipur", 26.824, 75.812),
+        Airport("LKO", "Lucknow", 26.761, 80.889),
+        Airport("GAU", "Guwahati", 26.106, 91.586),
+        Airport("IXC", "Chandigarh", 30.673, 76.788),
+        Airport("SXR", "Srinagar", 33.987, 74.774),
+        Airport("TRV", "Thiruvananthapuram", 8.482, 76.920),
+        Airport("BBI", "Bhubaneswar", 20.244, 85.818),
+        Airport("PAT", "Patna", 25.591, 85.088),
+        Airport("IDR", "Indore", 22.722, 75.801),
+        Airport("NAG", "Nagpur", 21.092, 79.047),
+        Airport("CJB", "Coimbatore", 11.030, 77.043),
+        Airport("VNS", "Varanasi", 25.452, 82.859),
+        Airport("IXB", "Bagdogra", 26.681, 88.329),
+        Airport("IXZ", "Port Blair", 11.641, 92.730),
+        // Mid-size
+        Airport("ATQ", "Amritsar", 31.710, 74.797),
+        Airport("IXJ", "Jammu", 32.689, 74.837),
+        Airport("IXL", "Leh", 34.136, 77.546),
+        Airport("DED", "Dehradun", 30.190, 78.180),
+        Airport("UDR", "Udaipur", 24.618, 73.896),
+        Airport("JDH", "Jodhpur", 26.251, 73.049),
+        Airport("BDQ", "Vadodara", 22.336, 73.226),
+        Airport("STV", "Surat", 21.114, 72.742),
+        Airport("HSR", "Rajkot", 22.380, 71.030),
+        Airport("IXU", "Aurangabad", 19.863, 75.398),
+        Airport("BHO", "Bhopal", 23.287, 77.338),
+        Airport("RPR", "Raipur", 21.180, 81.739),
+        Airport("IXE", "Mangaluru", 12.961, 74.890),
+        Airport("CCJ", "Kozhikode", 11.137, 75.955),
+        Airport("CNN", "Kannur", 11.918, 75.547),
+        Airport("IXM", "Madurai", 9.834, 78.093),
+        Airport("TRZ", "Tiruchirappalli", 10.765, 78.710),
+        Airport("TIR", "Tirupati", 13.632, 79.543),
+        Airport("VTZ", "Visakhapatnam", 17.721, 83.224),
+        Airport("VGA", "Vijayawada", 16.530, 80.797),
+        Airport("IXR", "Ranchi", 23.314, 85.322),
+        Airport("GAY", "Gaya", 24.744, 84.951),
+        Airport("IXD", "Prayagraj", 25.440, 81.734),
+        Airport("AYJ", "Ayodhya", 26.750, 82.150),
+        Airport("AGR", "Agra", 27.156, 77.961),
+        Airport("IMF", "Imphal", 24.760, 93.897),
+        Airport("IXA", "Agartala", 23.887, 91.240),
+        Airport("DIB", "Dibrugarh", 27.483, 95.017),
+        Airport("JRH", "Jorhat", 26.732, 94.175),
+        Airport("DMU", "Dimapur", 25.884, 93.771),
+        Airport("HBX", "Hubballi", 15.362, 75.085),
+        // Regional (few flights, often pricier)
+        Airport("KUU", "Kullu–Bhuntar", 31.877, 77.154, regional = true),
+        Airport("DHM", "Dharamshala–Gaggal", 32.165, 76.263, regional = true),
+        Airport("SLV", "Shimla", 31.082, 77.068, regional = true),
+        Airport("PGH", "Pantnagar", 29.033, 79.473, regional = true),
+        Airport("KQH", "Kishangarh (Ajmer)", 26.602, 74.816, regional = true),
+        Airport("JSA", "Jaisalmer", 26.889, 70.865, regional = true),
+        Airport("BKB", "Bikaner", 28.071, 73.207, regional = true),
+        Airport("GWL", "Gwalior", 26.293, 78.228, regional = true),
+        Airport("HJR", "Khajuraho", 24.817, 79.919, regional = true),
+        Airport("JLR", "Jabalpur", 23.178, 80.052, regional = true),
+        Airport("JGB", "Jagdalpur", 19.074, 82.037, regional = true),
+        Airport("BHJ", "Bhuj", 23.288, 69.670, regional = true),
+        Airport("PBD", "Porbandar", 21.649, 69.657, regional = true),
+        Airport("DIU", "Diu", 20.713, 70.921, regional = true),
+        Airport("ISK", "Nashik", 20.119, 73.913, regional = true),
+        Airport("KLH", "Kolhapur", 16.665, 74.289, regional = true),
+        Airport("MYQ", "Mysuru", 12.231, 76.656, regional = true),
+        Airport("RDP", "Durgapur", 23.622, 87.243, regional = true),
+        Airport("DGH", "Deoghar", 24.444, 86.703, regional = true),
+        Airport("TEZ", "Tezpur", 26.709, 92.784, regional = true),
+        Airport("HGI", "Itanagar–Hollongi", 26.970, 93.640, regional = true),
+        Airport("AJL", "Aizawl", 23.840, 92.620, regional = true),
+        Airport("AGX", "Agatti (Lakshadweep)", 10.824, 72.176, regional = true),
+        Airport("RJA", "Rajahmundry", 17.110, 81.818),
+        Airport("GOP", "Gorakhpur", 26.740, 83.449),
+        Airport("IXS", "Silchar", 24.913, 92.979),
+        Airport("IXG", "Belagavi", 15.859, 74.618, regional = true),
+        Airport("GBI", "Kalaburagi", 17.307, 76.958, regional = true),
+        Airport("RQY", "Shivamogga", 13.854, 75.611, regional = true),
+        Airport("VDY", "Hampi (Vidyanagar)", 15.175, 76.634, regional = true),
+        Airport("JRG", "Jharsuguda", 21.913, 84.050, regional = true),
+        Airport("TCR", "Thoothukudi", 8.724, 78.026, regional = true),
+        Airport("SXV", "Salem", 11.783, 78.065, regional = true),
+        Airport("KNU", "Kanpur", 26.404, 80.410, regional = true),
+        Airport("BEK", "Bareilly", 28.422, 79.452, regional = true),
+        Airport("DBR", "Darbhanga", 26.193, 85.917, regional = true),
+        Airport("JGA", "Jamnagar", 22.465, 70.012, regional = true),
+        Airport("BHU", "Bhavnagar", 21.752, 72.185, regional = true),
+        Airport("IXK", "Keshod (Junagadh)", 21.317, 70.270, regional = true),
+        Airport("IXY", "Kandla", 23.112, 70.100, regional = true),
+        Airport("PYG", "Pakyong (Gangtok)", 27.227, 88.587, regional = true),
+        Airport("IXI", "Lilabari (North Lakhimpur)", 27.295, 94.098, regional = true),
+        Airport("SHL", "Shillong", 25.704, 91.979, regional = true),
+        Airport("PNY", "Puducherry", 11.968, 79.812, regional = true),
+        Airport("CDP", "Kadapa", 14.510, 78.773, regional = true),
+        Airport("KJB", "Kurnool", 15.712, 78.163, regional = true),
+        Airport("NDC", "Nanded", 19.183, 77.317, regional = true),
+        Airport("SAG", "Shirdi", 19.689, 74.379, regional = true),
+        Airport("SDW", "Sindhudurg", 16.000, 73.533, regional = true),
+        Airport("BUP", "Bathinda", 30.270, 74.756, regional = true),
+        Airport("IXP", "Pathankot", 32.234, 75.634, regional = true),
+        Airport("PAB", "Bilaspur (Chhattisgarh)", 21.988, 82.111, regional = true),
+        Airport("RRK", "Rourkela", 22.256, 84.815, regional = true),
+        Airport("HSS", "Hisar", 29.180, 75.755, regional = true),
+        Airport("JLG", "Jalgaon", 20.962, 75.627, regional = true),
+    ).associateBy { it.code }
+
+    operator fun get(code: String?): Airport? = code?.let { list[it] }
+
+    val all: Collection<Airport> get() = list.values
+
+    /** Closest airport within [maxKm] of a point (for places that aren't in Packfare's table). */
+    fun nearest(lat: Double, lon: Double, maxKm: Double = 200.0, filter: (Airport) -> Boolean = { true }): Airport? =
+        list.values.filter(filter).map { it to FareEstimator.haversineKm(lat, lon, it.lat, it.lon) }
+            .filter { it.second <= maxKm }
+            .minByOrNull { it.second }?.first
+}

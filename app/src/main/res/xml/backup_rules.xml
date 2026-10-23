@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 6–11 backups. Vault files are encrypted with a key that never leaves this phone,
+     so backing them up would be useless: exclude them. -->
+<full-backup-content>
+    <exclude domain="file" path="vault/" />
+</full-backup-content>
