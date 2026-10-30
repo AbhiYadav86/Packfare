@@ -4,6 +4,13 @@ An offline-first Android app for backpackers in India (Indian and international)
 suggested budget, tracks daily spending and cash, maps the route with fare estimates, splits costs
 with travel buddies, scans receipts and keeps travel documents in an encrypted vault.
 
+## v0.11 – Wallpaper, events and reimbursement claims
+
+- Home screen wallpaper: a vintage compass (drawn in code, needle gently sways) over faded, slowly cross-fading open-licence photos of Indian destinations (Wikipedia/Wikimedia Commons, cached on the phone, compass-only when offline).
+- **Scan a bill** card on the front page: pick a trip or event (or create an event) and the receipt scanner opens straight away.
+- **Events**: a trip flagged as an event (conference, client visit, offsite) with a company to claim from. No route tab; bills, people and settle-up work as for trips. Database moves to schema v2 (migration included, existing trips are kept).
+- **Reimbursement PDF** (📄 in a trip or event): claimant, company and reference, itemised bills by date, category totals, payment-method split, flags bills without a receipt photo. Shared via the Android share sheet.
+
 ## Run it
 
 1. Open this folder in Android Studio (File > Open > Packfare).
@@ -12,6 +19,21 @@ with travel buddies, scans receipts and keeps travel documents in an encrypted v
 
 Unit tests (split maths, receipt reading, budget planner, fares, runway, cash, Wikivoyage parsing):
 right-click `app/src/test` > Run Tests, or `./gradlew test`.
+
+## Test APKs from GitHub (no Android Studio needed)
+
+`.github/workflows/build-apk.yml` builds a test APK on GitHub's servers on every push to `main`.
+
+1. Push this project to your GitHub repo (see below).
+2. Open the repo's **Actions** tab and watch "Build test APK" (about 5–8 minutes).
+3. On your phone, open the repo's **Releases** page, download the newest `Packfare-…apk` and open it
+   (allow "install unknown apps" for your browser when asked).
+
+Optional: add `TRAVELPAYOUTS_TOKEN` and `TRAVELPAYOUTS_MARKER` under *Settings → Secrets and variables →
+Actions* so test builds have live flight prices and your affiliate ID.
+
+All test builds (CI and Android Studio) are signed with the bundled test key `app/packfare-test.jks`, so
+each new APK installs over the last one. Before publishing on the Play Store, create a private release key.
 
 ## What's new in v0.10
 

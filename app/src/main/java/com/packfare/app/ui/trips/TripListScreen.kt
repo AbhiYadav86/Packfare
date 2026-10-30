@@ -22,6 +22,14 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import com.packfare.app.ui.components.HomeBackdrop
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
@@ -55,13 +63,28 @@ import java.time.LocalDate
 import com.packfare.app.ui.components.BudgetBar
 
 @Composable
-fun TripListScreen(vm: TripListViewModel, onOpenTrip: (Long) -> Unit, onPlanTrip: () -> Unit) {
+fun TripListScreen(
+    vm: TripListViewModel,
+    myName: String,
+    onOpenTrip: (Long) -> Unit,
+    onPlanTrip: () -> Unit,
+    /** Open the bill scanner for this trip or event. */
+    onScanBill: (Long) -> Unit,
+) {
     val trips by vm.trips.collectAsStateWithLifecycle()
+    var picking by remember { mutableStateOf(false) }
+    var newEvent by remember { mutableStateOf(false) }
+    // After "New event" from the scanner picker, go straight to scanning into it.
+    var scanAfterCreate by remember { mutableStateOf(false) }
 
+    Box(Modifier.fillMaxSize()) {
+    HomeBackdrop()
     Scaffold(
+        containerColor = Color.Transparent,
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             TopAppBar(
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
                 title = {
                     Column {
                         Text("Packfare", fontWeight = FontWeight.Bold)
@@ -83,9 +106,24 @@ fun TripListScreen(vm: TripListViewModel, onOpenTrip: (Long) -> Unit, onPlanTrip
         },
     ) { padding ->
         val list = trips
+        val header: @Composable () -> Unit = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                ScanBillCard(onClick = {
+                    if (list.isNullOrEmpty()) newEvent = true else picking = true
+                })
+                OutlinedButton(onClick = { scanAfterCreate = false; newEvent = true }, modifier = Modifier.fillMaxWidth()) {
+                    Text("🎫  New event (conference, client visit, offsite)")
+                }
+            }
+        }
         when {
             list == null -> Unit // loading; Room is fast so this is a blink
-            list.isEmpty() -> EmptyState(Modifier.padding(padding))
+            list.isEmpty() -> Column(
+                Modifier.padding(padding).padding(16.dp).verticalScroll(rememberScrollState()),
+            ) {
+                header()
+                EmptyState()
+            }
             else -> LazyColumn(
                 contentPadding = PaddingValues(
                     start = 16.dp,
@@ -95,13 +133,124 @@ fun TripListScreen(vm: TripListViewModel, onOpenTrip: (Long) -> Unit, onPlanTrip
                 ),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
+                item(key = "header") { header() }
                 items(list, key = { it.trip.id }) { summary ->
                     TripCard(summary, onClick = { onOpenTrip(summary.trip.id) })
                 }
             }
         }
     }
+    }
 
+    if (picking) {
+        PickTripDialog(
+            trips = trips.orEmpty(),
+            onDismiss = { picking = false },
+            onPick = { picking = false; onScanBill(it) },
+            onNewEvent = { picking = false; scanAfterCreate = true; newEvent = true },
+        )
+    }
+    if (newEvent) {
+        NewEventDialog(
+            onDismiss = { newEvent = false },
+            onCreate = { name, company, place ->
+                newEvent = false
+                val scan = scanAfterCreate
+                scanAfterCreate = false
+                vm.createEvent(name, company, place, myName) { id -> if (scan) onScanBill(id) else onOpenTrip(id) }
+            },
+        )
+    }
+}
+
+@Composable
+private fun ScanBillCard(onClick: () -> Unit) {
+    Card(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                Modifier.size(48.dp).background(MaterialTheme.colorScheme.tertiaryContainer, CircleShape),
+                contentAlignment = Alignment.Center,
+            ) { Text("🧾", fontSize = 24.sp) }
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text("Scan a bill", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "Snap a receipt and file it under a trip or event",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+/** Choose which trip or event a scanned bill belongs to. */
+@Composable
+private fun PickTripDialog(
+    trips: List<TripSummary>,
+    onDismiss: () -> Unit,
+    onPick: (Long) -> Unit,
+    onNewEvent: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("File this bill under…") },
+        text = {
+            Column(Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState())) {
+                trips.forEach { s ->
+                    TextButton(onClick = { onPick(s.trip.id) }, modifier = Modifier.fillMaxWidth()) {
+                        Text(
+                            (if (s.trip.isEvent) "🎫  " else "🧳  ") + s.trip.name,
+                            modifier = Modifier.fillMaxWidth(),
+                            maxLines = 1,
+                        )
+                    }
+                }
+                TextButton(onClick = onNewEvent, modifier = Modifier.fillMaxWidth()) {
+                    Text("➕  New event", modifier = Modifier.fillMaxWidth())
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
+
+@Composable
+private fun NewEventDialog(onDismiss: () -> Unit, onCreate: (name: String, company: String, place: String) -> Unit) {
+    var name by remember { mutableStateOf("") }
+    var company by remember { mutableStateOf("") }
+    var place by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("New event") },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = name, onValueChange = { name = it }, singleLine = true,
+                    label = { Text("Event name") },
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(
+                    value = company, onValueChange = { company = it }, singleLine = true,
+                    label = { Text("Company to claim from (optional)") },
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                )
+                OutlinedTextField(
+                    value = place, onValueChange = { place = it }, singleLine = true,
+                    label = { Text("Place (optional)") },
+                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(enabled = name.isNotBlank(), onClick = { onCreate(name.trim(), company, place) }) { Text("Create") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
 }
 
 @Composable
@@ -118,13 +267,18 @@ private fun TripCard(summary: TripSummary, onClick: () -> Unit) {
                         .background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text(destinationEmoji(summary.trip.destination + " " + summary.trip.name), fontSize = 24.sp)
+                    Text(if (summary.trip.isEvent) "🎫" else destinationEmoji(summary.trip.destination + " " + summary.trip.name), fontSize = 24.sp)
                 }
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
                     Text(summary.trip.name, style = MaterialTheme.typography.titleMedium, maxLines = 1)
                     val people = if (summary.memberCount == 1) "1 person" else "${summary.memberCount} people"
-                    val subtitle = listOf(summary.trip.destination, people).filter { it.isNotBlank() }.joinToString(" · ")
+                    val subtitle = listOfNotNull(
+                        if (summary.trip.isEvent) "Event" else null,
+                        summary.trip.company,
+                        summary.trip.destination,
+                        people,
+                    ).filter { it.isNotBlank() }.joinToString(" · ")
                     Text(
                         subtitle,
                         style = MaterialTheme.typography.bodyMedium,

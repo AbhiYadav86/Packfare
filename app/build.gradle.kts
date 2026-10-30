@@ -23,10 +23,10 @@ android {
         applicationId = "com.packfare.app"
         minSdk = 26
         targetSdk = 35
-        // Base version: change these two when you start a new version (e.g. 0.11).
-        // GitHub builds add the run number: 0.10.<run>; local builds stay 0.10.0.
-        val baseVersionCode = 10
-        val baseVersionName = "0.10"
+        // Base version: change these two when you start a new version (e.g. 0.12).
+        // GitHub builds add the run number: 0.11.<run>; local builds stay 0.11.0.
+        val baseVersionCode = 1100
+        val baseVersionName = "0.11"
         val ciRun = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull()
         versionCode = baseVersionCode + (ciRun ?: 0)
         versionName = if (ciRun != null) "$baseVersionName.$ciRun" else "$baseVersionName.0"
@@ -35,20 +35,18 @@ android {
         buildConfigField("String", "TRAVELPAYOUTS_MARKER", "\"${localProps.getProperty("travelpayouts.marker", "")}\"")
     }
 
+    // A fixed test key so every test APK (from Android Studio or GitHub Actions) installs over the
+    // previous one. Only for testing: make a private release key before publishing on the Play Store.
     signingConfigs {
-        // A fixed debug key kept in the repo, so every GitHub-built APK installs over the previous one
-        create("ciDebug") {
-            storeFile = rootProject.file("ci-debug.keystore")
-            storePassword = "android"
-            keyAlias = "androiddebugkey"
-            keyPassword = "android"
+        getByName("debug") {
+            storeFile = file("packfare-test.jks")
+            storePassword = "packfare-test"
+            keyAlias = "packfare-test"
+            keyPassword = "packfare-test"
         }
     }
 
     buildTypes {
-        debug {
-            signingConfig = signingConfigs.getByName("ciDebug")
-        }
         release {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")

@@ -250,6 +250,11 @@ class TripDetailViewModel(
 
     // ---- Trip settings ----
 
+    fun setCompany(company: String) {
+        val trip = state.value.trip ?: return
+        viewModelScope.launch { repository.updateTrip(trip.copy(company = company.ifBlank { null })) }
+    }
+
     fun updateTripPlan(budgetPaise: Long, plannedDays: Int, start: LocalDate?, style: TravelStyle) {
         val trip = state.value.trip ?: return
         viewModelScope.launch {

@@ -28,6 +28,21 @@ class TripRepository(
     suspend fun createPlannedTrip(trip: TripEntity, myName: String, legs: List<LegEntity>): Long =
         dao.createPlannedTrip(trip.copy(name = trip.name.trim()), myName.trim().ifBlank { "Me" }, legs)
 
+    /** An event (conference, client visit...) with just the organiser; bills and claims work as for trips. */
+    suspend fun createEvent(name: String, company: String, place: String, myName: String): Long =
+        dao.createPlannedTrip(
+            TripEntity(
+                name = name.trim(),
+                destination = place.trim(),
+                budgetPaise = 0,
+                startEpochDay = java.time.LocalDate.now().toEpochDay(),
+                kind = TripEntity.KIND_EVENT,
+                company = company.trim().ifBlank { null },
+            ),
+            myName.trim().ifBlank { "Me" },
+            emptyList(),
+        )
+
     suspend fun updateTrip(trip: TripEntity) = dao.updateTrip(trip)
 
     suspend fun tripOnce(tripId: Long) = dao.tripOnce(tripId)

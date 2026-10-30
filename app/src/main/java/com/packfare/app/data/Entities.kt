@@ -22,7 +22,18 @@ data class TripEntity(
     /** The member who is "me" on this phone: their cash wallet is tracked. */
     val ownerMemberId: Long? = null,
     val createdAt: Long = System.currentTimeMillis(),
-)
+    /** "TRIP" or "EVENT" (conference, client visit, offsite). Events skip planning but keep bills and claims. */
+    val kind: String = KIND_TRIP,
+    /** Company or organiser to claim from. Used on the reimbursement PDF. */
+    val company: String? = null,
+) {
+    val isEvent: Boolean get() = kind == KIND_EVENT
+
+    companion object {
+        const val KIND_TRIP = "TRIP"
+        const val KIND_EVENT = "EVENT"
+    }
+}
 
 @Entity(
     tableName = "members",

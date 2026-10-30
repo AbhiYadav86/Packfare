@@ -74,7 +74,11 @@ fun TripDetailScreen(
     var addingCash by remember { mutableStateOf(false) }
     var legDialog by remember { mutableStateOf<LegEntity?>(null) }
     var addingLeg by remember { mutableStateOf(false) }
-    val currentTab = TripTab.entries[tab]
+    var claimOpen by remember { mutableStateOf(false) }
+    val isEvent = state.trip?.isEvent == true
+    // Events have no route to plan, so that tab is hidden.
+    val tabs = if (isEvent) TripTab.entries.filter { it != TripTab.ROUTE } else TripTab.entries.toList()
+    val currentTab = tabs[tab.coerceIn(0, tabs.lastIndex)]
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbar) },
@@ -94,6 +98,9 @@ fun TripDetailScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = { claimOpen = true }, enabled = state.trip != null) {
+                        Text("📄", style = MaterialTheme.typography.titleMedium)
+                    }
                     IconButton(onClick = { editingPlan = true }, enabled = state.trip != null) {
                         Icon(Icons.Filled.Edit, contentDescription = "Edit budget and dates")
                     }
@@ -135,8 +142,8 @@ fun TripDetailScreen(
         },
     ) { padding ->
         Column(Modifier.padding(padding).fillMaxSize()) {
-            ScrollableTabRow(selectedTabIndex = tab, edgePadding = 8.dp) {
-                TripTab.entries.forEachIndexed { index, t ->
+            ScrollableTabRow(selectedTabIndex = tab.coerceIn(0, tabs.lastIndex), edgePadding = 8.dp) {
+                tabs.forEachIndexed { index, t ->
                     Tab(selected = tab == index, onClick = { tab = index }, text = { Text(t.label) })
                 }
             }
@@ -150,7 +157,7 @@ fun TripDetailScreen(
                 )
                 TripTab.EXPENSES -> ExpensesTab(
                     state = state,
-                    onGoToPeople = { tab = TripTab.PEOPLE.ordinal },
+                    onGoToPeople = { tab = tabs.indexOf(TripTab.PEOPLE) },
                     onEditExpense = onEditExpense,
                     onDeleteSettlement = vm::deleteExpense,
                 )
@@ -166,6 +173,27 @@ fun TripDetailScreen(
     }
 
     // ---- Dialogs ----
+
+    if (claimOpen) {
+        val ownerName = state.members.firstOrNull { it.id == state.trip?.ownerMemberId }?.name.orEmpty()
+        ClaimDialog(
+            state = state,
+            initialClaimant = ownerName,
+            initialCompany = state.trip?.company.orEmpty(),
+            onDismiss = { claimOpen = false },
+            onCreate = { header, summary, company ->
+                claimOpen = false
+                vm.setCompany(company)
+                val file = com.packfare.app.report.ClaimPdf.outputFile(context, header.reference)
+                val ok = runCatching { com.packfare.app.report.ClaimPdf.write(file, header, summary) }.isSuccess
+                if (ok) {
+                    com.packfare.app.report.ClaimPdf.shareFile(context, file, "Expense claim: ${header.eventName}")
+                } else {
+                    scope.launch { snackbar.showSnackbar("Couldn't create the PDF") }
+                }
+            },
+        )
+    }
 
     if (editingPlan) {
         state.trip?.let { trip ->

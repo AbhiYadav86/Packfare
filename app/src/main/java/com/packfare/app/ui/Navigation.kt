@@ -84,7 +84,9 @@ fun PackfareNavHost(app: PackfareApp) {
                         )
                         TripListScreen(
                             vm,
+                            myName = app.prefs.travellerName.orEmpty(),
                             onOpenTrip = { nav.navigate(Routes.trip(it)) },
+                            onScanBill = { nav.navigate(Routes.expense(it, scan = true)) },
                             // Trip planning starts in Explore: themes, suggested trips, places.
                             onPlanTrip = { tab = HomeTab.EXPLORE },
                         )
