@@ -1,6 +1,8 @@
 package com.packfare.app.explore
 
+import com.packfare.app.domain.ActivityIdea
 import com.packfare.app.domain.DailyCosts
+import com.packfare.app.domain.IdeaSource
 import com.packfare.app.domain.Destination
 
 /** Wikivoyage splits "Sleep" into Budget / Mid-range / Splurge sub-sections. */
@@ -89,6 +91,40 @@ object WikivoyageParser {
             if (type != "see" && type != "do") return@mapNotNull null
             cleanName(f["name"].orEmpty()).takeIf { it.length in 2..60 }
         }.distinct().take(max)
+
+    /**
+     * See/Do listings with the prices the guide gives, as activity ideas. [ActivityIdea.lowPaise] is the
+     * cheapest rupee amount in the price text and [ActivityIdea.highPaise] the dearest ("₹50 Indians,
+     * ₹500 foreigners" -> 50 to 500). Listings without a price still come through, with no price.
+     */
+    fun activities(wikitext: String, max: Int = 14): List<ActivityIdea> =
+        listingTemplates(wikitext).mapNotNull { t ->
+            val f = fields(t.body)
+            val type = (if (t.kind == "listing") f["type"] else t.kind)?.lowercase()
+            if (type != "see" && type != "do") return@mapNotNull null
+            val name = cleanName(f["name"].orEmpty()).takeIf { it.length in 2..60 } ?: return@mapNotNull null
+            val priceText = f["price"].orEmpty()
+            val amounts = rupeeAmounts(priceText).filter { it in 0L..50_000_00L }
+            val free = amounts.isEmpty() && Regex("""\bfree\b""", RegexOption.IGNORE_CASE).containsMatchIn(priceText)
+            val low = when {
+                free -> 0L
+                amounts.isEmpty() -> null
+                else -> amounts.min()
+            }
+            val high = amounts.maxOrNull()?.takeIf { low != null && it > low }
+            ActivityIdea(name, low, high, "", IdeaSource.GUIDE)
+        }.distinctBy { it.name }.take(max)
+
+    /** Every rupee amount in a price string, in paise ("₹50-100" gives 50 and 100). */
+    internal fun rupeeAmounts(text: String): List<Long> {
+        val out = mutableListOf<Long>()
+        rupeeAmount.findAll(text).forEach { m ->
+            m.groupValues[1].replace(",", "").toLongOrNull()?.let { out += it * 100 }
+            m.groupValues.getOrNull(2)?.takeIf { it.isNotBlank() }?.replace(",", "")?.toLongOrNull()?.let { out += it * 100 }
+        }
+        rupeeSuffix.findAll(text).forEach { m -> m.groupValues[1].replace(",", "").toLongOrNull()?.let { out += it * 100 } }
+        return out
+    }
 
     /** "[[Hadimba Temple|Hadimba Devi Temple]]" -> "Hadimba Devi Temple"; drops wiki bold/italics and HTML. */
     private fun cleanName(raw: String): String = raw

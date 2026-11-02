@@ -2,6 +2,11 @@ package com.packfare.app.ui.home
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountBox
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -9,20 +14,15 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.ShoppingCart
 
+/** The four places to be: start here, find ideas, your trips, and the money and papers. */
 enum class HomeTab(val label: String, val icon: ImageVector) {
-    TRIPS("Trips", Icons.Filled.Home),
-    EXPLORE("Explore", Icons.Filled.Search),
-    FARES("Fares", Icons.Filled.ShoppingCart),
-    HOW_LONG("How long?", Icons.Filled.DateRange),
-    VAULT("Vault", Icons.Filled.Lock),
+    HOME("Home", Icons.Filled.Home),
+    DISCOVER("Discover", Icons.Filled.Search),
+    TRIPS("Trips", Icons.Filled.Menu),
+    WALLET("Wallet", Icons.Filled.AccountBox),
 }
 
 /** Bottom navigation shell. Each tab's content brings its own top bar. */
@@ -33,6 +33,7 @@ fun HomeScreen(
     content: @Composable (HomeTab) -> Unit,
 ) {
     Scaffold(
+        containerColor = Color.Transparent,
         bottomBar = {
             NavigationBar {
                 HomeTab.entries.forEach { t ->

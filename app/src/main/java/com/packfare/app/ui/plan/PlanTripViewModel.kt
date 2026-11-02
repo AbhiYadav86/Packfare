@@ -139,7 +139,7 @@ class PlanTripViewModel(
     val liveFlightsAvailable: Boolean get() = fares.liveFlights
 
     // ---- Itinerary text ----
-    private var highlights by mutableStateOf<Map<String, List<String>>>(emptyMap())
+    private var highlights by mutableStateOf<Map<String, List<com.packfare.app.domain.ActivityIdea>>>(emptyMap())
 
     /** Budget the user typed; null = follow the suggestion. */
     var budgetOverride by mutableStateOf<String?>(initialBudgetPaise?.let { Money.toUpiAmount(it).removeSuffix(".00") })
@@ -363,7 +363,7 @@ class PlanTripViewModel(
         val current = stops.map { it.destination }
         viewModelScope.launch {
             val found = current.filter { it.region != "Other" }.associate { d ->
-                d.name to runCatching { explore.highlights(d, allowNetwork) }.getOrDefault(emptyList())
+                d.name to runCatching { explore.activities(d, allowNetwork) }.getOrDefault(emptyList())
             }
             highlights = highlights + found.filterValues { it.isNotEmpty() }
         }
@@ -481,7 +481,7 @@ class PlanTripViewModel(
         val dest = place?.asDestination() ?: Destination(name, "Other", Double.NaN, Double.NaN, CostTier.MID)
         val costs = place?.costs ?: dest.baseline
         stops = stops + StopDraft(dest, nights, costs, place?.stats?.sampleCount ?: 0)
-        place?.highlights?.takeIf { it.isNotEmpty() }?.let { highlights = highlights + (dest.name to it) }
+        place?.activities?.takeIf { it.isNotEmpty() }?.let { highlights = highlights + (dest.name to it) }
     }
 
     private suspend fun addDestination(d: Destination, nights: Int) {

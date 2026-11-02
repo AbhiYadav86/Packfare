@@ -29,7 +29,7 @@ private val LightColors = lightColorScheme(
     onTertiary = Color.White,
     tertiaryContainer = Color(0xFFF5DECB),
     onTertiaryContainer = Color(0xFF34190A),
-    background = Color(0xFFF6F7F2),
+    background = Color.Transparent, // the page colour and compass are painted once, behind every screen (PageBackdrop)
     onBackground = Color(0xFF1B211D),
     surface = Color(0xFFF6F7F2),
     onSurface = Color(0xFF1B211D),
@@ -57,7 +57,7 @@ private val DarkColors = darkColorScheme(
     onTertiary = Color(0xFF4F250A),
     tertiaryContainer = Color(0xFF6E3B1C),
     onTertiaryContainer = Color(0xFFF5DECB),
-    background = Color(0xFF121613),
+    background = Color.Transparent,
     onBackground = Color(0xFFE0E4DE),
     surface = Color(0xFF121613),
     onSurface = Color(0xFFE0E4DE),
@@ -71,6 +71,9 @@ private val DarkColors = darkColorScheme(
     surfaceContainerHigh = Color(0xFF282D29),
     surfaceContainerHighest = Color(0xFF333834),
 )
+
+/** Solid page colour painted behind everything, since the theme background is transparent. */
+fun pageColor(dark: Boolean) = if (dark) Color(0xFF121613) else Color(0xFFF6F7F2)
 
 /** Colour for money the group owes a person (green) vs money they owe (red). */
 object BalanceColors {

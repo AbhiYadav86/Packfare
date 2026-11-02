@@ -77,12 +77,17 @@ class ItineraryTest {
         val stops = listOf(PlanStop(d("Manali"), 3), PlanStop(d("Kasol"), 2))
         val s = BudgetPlanner.suggest(stops, TravelStyle.BACKPACKER, origin = d("Delhi"), returnTo = d("Delhi"))
         val start = LocalDate.of(2026, 11, 1)
-        val days = ItineraryBuilder.days(s, start, mapOf("Manali" to listOf("Hadimba Temple", "Old Manali", "Solang Valley")))
+        val days = ItineraryBuilder.days(
+            s, start,
+            mapOf("Manali" to listOf("Hadimba Temple", "Old Manali", "Solang Valley").map { ActivityIdea(it, 10_000L) }),
+        )
         assertEquals(6, days.size) // 5 nights + travel-home day
         assertEquals("Travel to Manali", days[0].title)
         assertEquals(LegKind.OUTBOUND, days[0].travel!!.kind)
-        assertEquals(listOf("Hadimba Temple", "Old Manali"), days[0].highlights)
-        assertEquals(listOf("Solang Valley"), days[1].highlights)
+        // The arrival day is lighter (one idea); explore days get two.
+        assertEquals(listOf("Hadimba Temple"), days[0].highlights)
+        assertEquals(listOf("Old Manali", "Solang Valley"), days[1].highlights)
+        assertEquals(20_000L, days[1].activitiesPaise)
         assertEquals("Travel to Kasol", days[3].title)
         assertEquals("Head home to Delhi", days.last().title)
         assertEquals(start.plusDays(5), days.last().date)

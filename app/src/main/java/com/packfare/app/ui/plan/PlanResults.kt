@@ -85,13 +85,15 @@ import com.packfare.app.ui.components.PinColors
 import com.packfare.app.ui.theme.HeroGradient
 import java.time.LocalDate
 
-private enum class ResultTab(val label: String) { ITINERARY("Itinerary"), GETTING_THERE("Getting there"), STAYS("Stays"), BUDGET("Budget") }
+private enum class ResultTab(val label: String) { SETUP("Setup"), ITINERARY("Itinerary"), TRAVEL("Travel"), BOOK("Book") }
 
 @Composable
 internal fun ResultsPage(vm: PlanTripViewModel, onCreated: (Long) -> Unit) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var pickingLeg by remember { mutableStateOf<LegEstimate?>(null) }
     var editingTravellers by remember { mutableStateOf(false) }
+    var showBreakdown by remember { mutableStateOf(false) }
+    var booked by rememberSaveable { mutableStateOf("") }
     val s = vm.suggestion
     val search = vm.currentSearch()
 
@@ -121,7 +123,7 @@ internal fun ResultsPage(vm: PlanTripViewModel, onCreated: (Long) -> Unit) {
                 }
             }
         },
-        bottomBar = { TotalBar(vm, s, onCreate = { vm.create(onCreated) }) },
+        bottomBar = { TotalBar(vm, s, onBreakdown = { showBreakdown = true }, onCreate = { vm.create(onCreated) }) },
     ) { padding ->
         Column(
             Modifier
@@ -135,10 +137,18 @@ internal fun ResultsPage(vm: PlanTripViewModel, onCreated: (Long) -> Unit) {
                 Text("No stops yet. Add one below or go back and search again.", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             when (ResultTab.entries[tab]) {
+                ResultTab.SETUP -> { StaysTab(vm, s); TripDetailsFields(vm) }
                 ResultTab.ITINERARY -> ItineraryTab(vm, onPickLeg = { pickingLeg = it })
-                ResultTab.GETTING_THERE -> GettingThereTab(vm, s, onPickLeg = { pickingLeg = it })
-                ResultTab.STAYS -> StaysTab(vm, s)
-                ResultTab.BUDGET -> BudgetTab(vm, s)
+                ResultTab.TRAVEL -> GettingThereTab(vm, s, onPickLeg = { pickingLeg = it })
+                ResultTab.BOOK -> BookTab(
+                    vm, s,
+                    booked = booked.split("|").filter { it.isNotBlank() }.toSet(),
+                    onToggle = { key ->
+                        val set = booked.split("|").filter { it.isNotBlank() }.toMutableSet()
+                        if (!set.add(key)) set.remove(key)
+                        booked = set.joinToString("|")
+                    },
+                )
             }
         }
     }
@@ -151,29 +161,54 @@ internal fun ResultsPage(vm: PlanTripViewModel, onCreated: (Long) -> Unit) {
         )
     }
     if (editingTravellers) TravellersDialog(vm, onDismiss = { editingTravellers = false })
+    if (showBreakdown && s != null) BreakdownSheet(vm, s, onDismiss = { showBreakdown = false })
 }
 
-/** Always-visible total and the main action, like a checkout bar. */
+/** The one total, on screen through every step. Tap Breakdown for the lines; Create trip is the main action. */
 @Composable
-private fun TotalBar(vm: PlanTripViewModel, s: BudgetSuggestion?, onCreate: () -> Unit) {
-    Surface(tonalElevation = 6.dp, shadowElevation = 12.dp) {
+private fun TotalBar(vm: PlanTripViewModel, s: BudgetSuggestion?, onBreakdown: () -> Unit, onCreate: () -> Unit) {
+    Surface(color = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary, shadowElevation = 12.dp) {
         Row(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
+            Column(Modifier.weight(1f).clickable(enabled = s != null, onClick = onBreakdown)) {
                 if (s != null) {
-                    Text("${Money.format(s.perPersonPaise)} per person", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text("Trip total · per person", style = MaterialTheme.typography.labelSmall)
+                    Text(Money.format(s.perPersonPaise), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                     Text(
                         (if (s.people > 1) "Group of ${s.people}: ${Money.format(s.groupTotalPaise)} · " else "") +
-                            "${s.days} nights · fares included",
+                            "${s.days} nights · tap for breakdown",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 } else {
                     Text("Add a stop to see prices", style = MaterialTheme.typography.bodyMedium)
                 }
             }
-            Button(onClick = onCreate, enabled = vm.canCreate, shape = RoundedCornerShape(12.dp), modifier = Modifier.height(48.dp)) {
+            Button(
+                onClick = onCreate,
+                enabled = vm.canCreate,
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.height(48.dp),
+                colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    contentColor = MaterialTheme.colorScheme.primary,
+                ),
+            ) {
                 Text("Create trip", fontWeight = FontWeight.SemiBold)
             }
+        }
+    }
+}
+
+/** Every cost line in one place, plus your budget cap. Replaces the old Budget tab. */
+@Composable
+private fun BreakdownSheet(vm: PlanTripViewModel, s: BudgetSuggestion, onDismiss: () -> Unit) {
+    androidx.compose.material3.ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(bottom = 24.dp).navigationBarsPadding(),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            SuggestionCard(s)
+            BudgetCapField(vm, s)
+            Button(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) { Text("Done") }
         }
     }
 }
@@ -361,12 +396,52 @@ private fun ItinerarySection(days: List<ItineraryDay>, onLoadIdeas: () -> Unit) 
                                 style = MaterialTheme.typography.bodySmall,
                             )
                         }
-                        d.highlights.forEach { h -> Text("• $h", style = MaterialTheme.typography.bodySmall) }
+                        d.activities.forEach { a ->
+                            Row(Modifier.fillMaxWidth()) {
+                                Text("• ${a.name}", Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+                                Text(
+                                    a.costLabel,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.padding(start = 8.dp),
+                                )
+                            }
+                            if (a.note.isNotBlank()) {
+                                Text(
+                                    a.note,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(start = 12.dp, bottom = 2.dp),
+                                )
+                            }
+                        }
+                        if (d.activities.isNotEmpty()) {
+                            Text(
+                                "Day's activities ≈ ${Money.format(d.activitiesPaise)} per person",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
                 }
             }
-            if (days.none { it.highlights.isNotEmpty() }) {
-                TextButton(onClick = onLoadIdeas) { Text("Fill days with ideas from the guide (needs internet)") }
+            val ideasTotal = days.sumOf { it.activitiesPaise }
+            if (ideasTotal > 0) {
+                HorizontalDivider()
+                Text(
+                    "Suggested activities in all ≈ ${Money.format(ideasTotal)} per person (low end of each price).",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Medium,
+                )
+                Text(
+                    "Prices are approximate and change by season. \"Typical\" ideas are ranges for this kind of place, not quotes. " +
+                        "Foreign visitors often pay more at monuments and parks.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            if (days.none { it.activities.isNotEmpty() }) {
+                TextButton(onClick = onLoadIdeas) { Text("Fill days with things to do (adds guide listings when online)") }
             }
         }
     }
@@ -540,6 +615,15 @@ private fun StaysTab(vm: PlanTripViewModel, s: BudgetSuggestion?) {
                             .padding(horizontal = 8.dp, vertical = 4.dp),
                     ) {
                         Text(st.label, Modifier.weight(1f), fontWeight = if (chosen) FontWeight.SemiBold else FontWeight.Normal)
+                        if (!chosen) {
+                            val chosenPrice = if (vm.style.rooms) stop.costs.roomPaise(vm.style) else stop.costs.forStyle(vm.style).stayPaise
+                            val diff = price - chosenPrice
+                            Text(
+                                (if (diff >= 0) "+" else "−") + Money.format(kotlin.math.abs(diff)) + "  ",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = if (diff <= 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.tertiary,
+                            )
+                        }
                         Text("≈ ${Money.format(price)} $unit", style = MaterialTheme.typography.bodyMedium)
                     }
                 }
@@ -571,22 +655,24 @@ private fun StaysTab(vm: PlanTripViewModel, s: BudgetSuggestion?) {
 // =====================================================================
 
 @Composable
-private fun BudgetTab(vm: PlanTripViewModel, s: BudgetSuggestion?) {
-    if (s != null) {
-        SuggestionCard(s)
-        OutlinedTextField(
-            value = vm.budgetText,
-            onValueChange = vm::onBudgetChange,
-            label = { Text(if (vm.people > 1) "Trip budget (whole group, incl. travel)" else "Trip budget (incl. travel)") },
-            prefix = { Text("₹ ") },
-            singleLine = true,
-            isError = vm.budgetPaise <= 0,
-            supportingText = { Text("≈ ${Money.format(vm.budgetPaise / s.days.coerceAtLeast(1))} a day · you can change this any time") },
-            modifier = Modifier.fillMaxWidth(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-        )
-        if (vm.budgetOverride != null) TextButton(onClick = vm::resetBudget) { Text("Use the suggested budget") }
-    }
+private fun BudgetCapField(vm: PlanTripViewModel, s: BudgetSuggestion) {
+    OutlinedTextField(
+        value = vm.budgetText,
+        onValueChange = vm::onBudgetChange,
+        label = { Text(if (vm.people > 1) "Trip budget (whole group, incl. travel)" else "Trip budget (incl. travel)") },
+        prefix = { Text("₹ ") },
+        singleLine = true,
+        isError = vm.budgetPaise <= 0,
+        supportingText = { Text("≈ ${Money.format(vm.budgetPaise / s.days.coerceAtLeast(1))} a day · you can change this any time") },
+        modifier = Modifier.fillMaxWidth(),
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+    )
+    if (vm.budgetOverride != null) TextButton(onClick = vm::resetBudget) { Text("Use the suggested budget") }
+}
+
+/** Trip name and your name, at the bottom of Setup. The budget cap lives in the breakdown sheet. */
+@Composable
+private fun TripDetailsFields(vm: PlanTripViewModel) {
     OutlinedTextField(
         value = vm.name,
         onValueChange = { vm.name = it },
@@ -605,6 +691,104 @@ private fun BudgetTab(vm: PlanTripViewModel, s: BudgetSuggestion?) {
         modifier = Modifier.fillMaxWidth(),
         keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words),
     )
+}
+
+// =====================================================================
+// Book tab: one checklist, one link each
+// =====================================================================
+
+@Composable
+private fun BookTab(vm: PlanTripViewModel, s: BudgetSuggestion?, booked: Set<String>, onToggle: (String) -> Unit) {
+    val uri = LocalUriHandler.current
+    if (s == null || vm.stops.isEmpty()) {
+        Text("Add a stop to see what to book.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        return
+    }
+    val total = s.legs.size + vm.stops.size
+    Text("Book your trip", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+    Text(
+        "${booked.size} of $total booked. Tick each one as you book it, then create the trip to keep your tickets and bills together.",
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    Text("Getting there", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+    val dates = vm.legDates(s)
+    s.legs.forEachIndexed { i, leg ->
+        val key = "leg$i"
+        val o = leg.option
+        BookRow(
+            title = "${leg.from.name} → ${leg.to.name}",
+            detail = "${o.mode.emoji} ${o.mode.label} · ${dates[i].format(shortDate)} · ≈ ${Money.format(o.farePaise)} per person",
+            done = key in booked,
+            onToggle = { onToggle(key) },
+        ) {
+            if (o.mode == TransportMode.FLIGHT) {
+                FlightPlanner.choicesByArrivalAirport(leg.from, leg.to).take(1).forEach { plan ->
+                    val marker = BuildConfig.TRAVELPAYOUTS_MARKER.ifBlank { null }
+                    val aviasales = BookingLinks.aviasalesLink(plan.from.code, plan.to.code, dates[i], marker)
+                    val links = BookingLinks.flightLinks(plan.from.code, plan.to.code, dates[i])
+                    LinkRow(if (marker != null) listOf(aviasales) + links.take(1) else links.take(1) + aviasales) { uri.openUri(it) }
+                }
+            } else {
+                LinkRow(BookingLinks.groundLinks(o.mode, leg.from, leg.to, dates[i], vm.foreignVisitor).take(2)) { uri.openUri(it) }
+            }
+        }
+    }
+    Text("Where you'll stay", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 8.dp))
+    var checkIn = vm.startDate
+    val sharing = vm.sharingRoom ?: (vm.people > 1)
+    vm.stops.forEachIndexed { i, stop ->
+        val inDate = checkIn
+        val outDate = inDate.plusDays(stop.nights.toLong())
+        checkIn = outDate
+        val rooms = if (!vm.style.rooms) vm.people else if (sharing) (vm.people + 1) / 2 else vm.people
+        val key = "stay$i"
+        BookRow(
+            title = stop.destination.name,
+            detail = "${vm.style.label} · ${inDate.format(shortDate)} – ${outDate.format(shortDate)} · ${stop.nights} night${if (stop.nights == 1) "" else "s"}",
+            done = key in booked,
+            onToggle = { onToggle(key) },
+        ) {
+            LinkRow(
+                listOf(
+                    "Booking.com" to BookingLinks.bookingCom(stop.destination, inDate, outDate, vm.people, rooms),
+                    (if (vm.style.rooms) "Google Hotels" else "Hostels") to BookingLinks.googleHotels(stop.destination, hostels = !vm.style.rooms),
+                ),
+            ) { uri.openUri(it) }
+        }
+    }
+    Text(
+        "Some places need permits (for example Inner Line Permits or protected-area passes). Check each place's page in Discover before you go.",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    Text(
+        "Booking links are affiliate links: Packfare may earn a small commission at no cost to you. Prices marked ≈ are estimates.",
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+}
+
+@Composable
+private fun BookRow(title: String, detail: String, done: Boolean, onToggle: () -> Unit, links: @Composable () -> Unit) {
+    Card(
+        Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (done) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHighest,
+        ),
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text(detail, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Checkbox(checked = done, onCheckedChange = { onToggle() })
+            }
+            if (!done) links()
+        }
+    }
 }
 
 @Composable

@@ -75,7 +75,7 @@ class VaultViewModel(private val vault: Vault) : ViewModel() {
 
 /** Feature 8: tickets, IDs and permits, encrypted on the phone and usable with no signal. */
 @Composable
-fun VaultScreen(vm: VaultViewModel, onOpen: (Long) -> Unit) {
+fun VaultScreen(vm: VaultViewModel, onOpen: (Long) -> Unit, showTopBar: Boolean = true) {
     val docs by vm.docs.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     var pending by remember { mutableStateOf<Uri?>(null) }
@@ -90,8 +90,9 @@ fun VaultScreen(vm: VaultViewModel, onOpen: (Long) -> Unit) {
     }
 
     Scaffold(
+        containerColor = androidx.compose.ui.graphics.Color.Transparent,
         topBar = {
-            TopAppBar(
+            if (showTopBar) TopAppBar(
                 title = {
                     Column {
                         Text("Vault")

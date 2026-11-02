@@ -48,7 +48,7 @@ import com.packfare.app.ui.theme.HeroGradient
  * Pure on-device math, no network.
  */
 @Composable
-fun HowLongScreen(onPlan: (stops: List<String>, days: Int, budgetPaise: Long) -> Unit) {
+fun HowLongScreen(onBack: () -> Unit, onPlan: (stops: List<String>, days: Int, budgetPaise: Long) -> Unit) {
     var budget by rememberSaveable { mutableStateOf("30000") }
     var region by rememberSaveable { mutableStateOf("Himachal") }
     var styleName by rememberSaveable { mutableStateOf(TravelStyle.BACKPACKER.name) }
@@ -58,8 +58,14 @@ fun HowLongScreen(onPlan: (stops: List<String>, days: Int, budgetPaise: Long) ->
     val result = BudgetPlanner.reverse(total, places, style)
 
     Scaffold(
+        containerColor = androidx.compose.ui.graphics.Color.Transparent,
         topBar = {
             TopAppBar(
+                navigationIcon = {
+                    androidx.compose.material3.IconButton(onClick = onBack) {
+                        androidx.compose.material3.Icon(androidx.compose.material.icons.Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                },
                 title = {
                     Column {
                         Text("How long can I travel?")

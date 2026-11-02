@@ -2,6 +2,7 @@
 
 package com.packfare.app.ui.explore
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -39,6 +40,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -188,48 +191,7 @@ private fun PlaceContent(
             }
         }
 
-        // Budget by style
-        Card(Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Suggested daily budget (per person)", style = MaterialTheme.typography.titleSmall)
-                TravelStyle.entries.forEach { style ->
-                    val day = costs.forStyle(style)
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text(style.label, fontWeight = FontWeight.Medium)
-                            Text(style.blurb, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            if (style.rooms) {
-                                Text(
-                                    "Room ≈${Money.format(costs.roomPaise(style))}/night, twin share",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.primary,
-                                )
-                            }
-                        }
-                        Text(Money.format(day.totalPaise), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                    }
-                }
-                HorizontalDivider()
-                Text("${vm.style.label}, per day", style = MaterialTheme.typography.labelLarge)
-                BreakdownRows(costs.forStyle(vm.style, solo = !vm.sharingRoom))
-                Text(
-                    if (stats.sampleCount > 0) {
-                        buildString {
-                            append("Based on ${stats.sampleCount} prices in Wikivoyage listings")
-                            stats.dormMedianPaise?.let { append(" · dorm beds ~${Money.format(it)}") }
-                            stats.midRoomMedianPaise?.let { append(" · mid-range rooms ~${Money.format(it)}") }
-                            stats.splurgeRoomMedianPaise?.let { append(" · splurge rooms ~${Money.format(it)}") }
-                            stats.mealMedianPaise?.let { append(" · meals ~${Money.format(it)}") }
-                            append(". Missing data uses typical prices.")
-                        }
-                    } else {
-                        "No prices listed in the guide yet, so these are typical prices for this kind of place."
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
+        ActivitiesCard(place)
 
         val cheapSleeps = stats.sleep.sortedBy { it.pricePaise }.take(5)
         val cheapEats = stats.eat.sortedBy { it.pricePaise }.take(5)
@@ -304,6 +266,7 @@ private fun TripCostCard(vm: PlaceViewModel, onFindFares: (String) -> Unit) {
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Your trip here, all in", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            StyleSelector(vm)
             OutlinedTextField(
                 value = vm.originText,
                 onValueChange = { vm.originText = it },
@@ -326,11 +289,6 @@ private fun TripCostCard(vm: PlaceViewModel, onFindFares: (String) -> Unit) {
                 FilledTonalIconButton(onClick = { vm.changeNights(+1) }) { Text("+") }
             }
             com.packfare.app.ui.components.TravelPrefChips(vm.travelPref, vm::chooseTravelPref, title = "Getting there by")
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                TravelStyle.entries.forEach { s ->
-                    FilterChip(selected = vm.style == s, onClick = { vm.style = s }, label = { Text(s.label) })
-                }
-            }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Checkbox(checked = vm.returnHome, onCheckedChange = { vm.returnHome = it })
                 Text("Return trip", style = MaterialTheme.typography.bodySmall)
@@ -398,6 +356,104 @@ private fun TripCostCard(vm: PlaceViewModel, onFindFares: (String) -> Unit) {
                 }
                 vm.fareNote?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
             }
+            vm.place?.stats?.let { PriceBasisNote(it) }
+        }
+    }
+}
+
+/**
+ * Pick where you'll stay. Each option shows what a night's room costs here and the all-in daily cost,
+ * so choosing a hotel class and seeing the estimate are one step, right at the top of the trip card.
+ */
+@Composable
+private fun StyleSelector(vm: PlaceViewModel) {
+    val costs = vm.place?.costs ?: return
+    Text("Where you'll stay", style = MaterialTheme.typography.labelLarge)
+    TravelStyle.entries.forEach { style ->
+        val selected = vm.style == style
+        val day = costs.forStyle(style, solo = !vm.sharingRoom)
+        Surface(
+            onClick = { vm.style = style },
+            shape = RoundedCornerShape(12.dp),
+            color = if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
+            border = BorderStroke(1.dp, if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Row(Modifier.padding(horizontal = 8.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                RadioButton(selected = selected, onClick = null)
+                Column(Modifier.weight(1f).padding(start = 8.dp)) {
+                    Text(style.label, fontWeight = FontWeight.Medium)
+                    Text(style.blurb, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (style.rooms) {
+                        Text(
+                            "Room ≈${Money.format(costs.roomPaise(style))}/night",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                }
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(Money.format(day.totalPaise), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text("a day", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+    }
+}
+
+/** Where the numbers above come from: Wikivoyage listings where the guide has prices, typical prices otherwise. */
+@Composable
+private fun PriceBasisNote(stats: com.packfare.app.explore.PriceStats) {
+    Text(
+        if (stats.sampleCount > 0) {
+            buildString {
+                append("Based on ${stats.sampleCount} prices in Wikivoyage listings")
+                stats.dormMedianPaise?.let { append(" · dorm beds ~${Money.format(it)}") }
+                stats.midRoomMedianPaise?.let { append(" · mid-range rooms ~${Money.format(it)}") }
+                stats.splurgeRoomMedianPaise?.let { append(" · splurge rooms ~${Money.format(it)}") }
+                stats.mealMedianPaise?.let { append(" · meals ~${Money.format(it)}") }
+                append(". Missing data uses typical prices.")
+            }
+        } else {
+            "No prices listed in the guide yet, so these are typical prices for this kind of place."
+        },
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+}
+
+/** Things to do here and what each costs per person. Checked ideas first, then guide listings, then typical ones. */
+@Composable
+private fun ActivitiesCard(place: PlaceInfo) {
+    val ideas = place.activities
+    if (ideas.isEmpty()) return
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("🎟️ Things to do & what they cost", style = MaterialTheme.typography.titleSmall)
+            ideas.forEach { a ->
+                Column {
+                    Row(Modifier.fillMaxWidth()) {
+                        Text(a.name, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                        Text(
+                            a.costLabel,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(start = 8.dp),
+                        )
+                    }
+                    val sub = listOfNotNull(a.note.takeIf { it.isNotBlank() }, if (a.source == com.packfare.app.domain.IdeaSource.TYPICAL) "typical price" else null)
+                        .joinToString(" · ")
+                    if (sub.isNotBlank()) {
+                        Text(sub, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
+            }
+            Text(
+                "Per person, approximate. \"Plan a trip here\" spreads these over your days. " +
+                    "Foreign visitors often pay more at parks and monuments.",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }

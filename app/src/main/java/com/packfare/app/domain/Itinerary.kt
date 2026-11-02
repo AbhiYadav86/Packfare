@@ -100,8 +100,14 @@ data class ItineraryDay(
     val place: String,
     val title: String,
     val travel: LegEstimate? = null,
-    val highlights: List<String> = emptyList(),
-)
+    val activities: List<ActivityIdea> = emptyList(),
+) {
+    /** Names only, for text that doesn't need prices. */
+    val highlights: List<String> get() = activities.map { it.name }
+
+    /** Approximate cost of this day's suggested activities, per person (the low end of each). */
+    val activitiesPaise: Long get() = activities.sumOf { it.planPaise }
+}
 
 object ItineraryBuilder {
 
@@ -175,12 +181,12 @@ object ItineraryBuilder {
 
     /**
      * Day-by-day plan. Each stop's first day is the arrival (with the journey), the rest are for
-     * exploring, filled with Wikivoyage highlights where we have them.
+     * exploring, filled with things to do (and what they cost) from [ideas].
      */
     fun days(
         suggestion: BudgetSuggestion,
         startDate: LocalDate?,
-        highlights: Map<String, List<String>> = emptyMap(),
+        ideas: Map<String, List<ActivityIdea>> = emptyMap(),
     ): List<ItineraryDay> {
         val out = mutableListOf<ItineraryDay>()
         var day = 1
@@ -188,9 +194,11 @@ object ItineraryBuilder {
             val name = s.stop.destination.name
             val incoming = suggestion.legs.firstOrNull { it.to.name == name && it.kind != LegKind.RETURN }
                 ?.takeIf { i > 0 || it.kind == LegKind.OUTBOUND }
-            val things = highlights[name].orEmpty()
+            val things = ideas[name].orEmpty()
             for (n in 0 until s.stop.nights) {
-                val picks = things.drop(n * 2).take(2)
+                // Two ideas a day; the arrival day is lighter if you've just travelled.
+                val perDay = if (n == 0 && incoming != null) 1 else 2
+                val picks = things.drop(if (incoming != null) maxOf(0, n * 2 - 1) else n * 2).take(perDay)
                 out += ItineraryDay(
                     day = day,
                     date = startDate?.plusDays((day - 1).toLong()),
@@ -201,7 +209,7 @@ object ItineraryBuilder {
                         else -> "Explore $name"
                     },
                     travel = if (n == 0) incoming else null,
-                    highlights = picks,
+                    activities = picks,
                 )
                 day++
             }

@@ -26,7 +26,11 @@ import com.packfare.app.ui.explore.ExploreViewModel
 import com.packfare.app.ui.explore.PlaceScreen
 import com.packfare.app.ui.explore.PlaceViewModel
 import com.packfare.app.ui.home.HomeScreen
+import com.packfare.app.ui.home.HomeLanding
 import com.packfare.app.ui.home.HomeTab
+import com.packfare.app.ui.components.PageBackdrop
+import com.packfare.app.ui.wallet.WalletScreen
+import com.packfare.app.ui.trips.BillFlow
 import com.packfare.app.ui.plan.HowLongScreen
 import com.packfare.app.ui.plan.PlanTripScreen
 import com.packfare.app.ui.plan.PlanTripViewModel
@@ -47,6 +51,7 @@ private object Routes {
     const val PLAN = "plan?stops={stops}&days={days}&budget={budget}&from={from}&resume={resume}&style={style}"
     const val DOC = "doc/{docId}"
     const val FARES = "fares?from={from}&to={to}&date={date}"
+    const val HOWLONG = "howlong"
 
     fun trip(id: Long) = "trip/$id"
     fun expense(tripId: Long, expenseId: Long? = null, scan: Boolean = false) =
@@ -72,26 +77,33 @@ fun PackfareNavHost(app: PackfareApp) {
     val nav = rememberNavController()
     val repository = app.repository
 
+    PageBackdrop {
     NavHost(navController = nav, startDestination = Routes.HOME) {
 
         composable(Routes.HOME) {
-            var tab by rememberSaveable { mutableStateOf(HomeTab.TRIPS) }
+            var tab by rememberSaveable { mutableStateOf(HomeTab.HOME) }
+            val tripsVm: TripListViewModel = viewModel(
+                factory = viewModelFactory { initializer { TripListViewModel(repository) } },
+            )
+            val myName = app.prefs.travellerName.orEmpty()
             HomeScreen(tab = tab, onTabChange = { tab = it }) { current ->
                 when (current) {
-                    HomeTab.TRIPS -> {
-                        val vm: TripListViewModel = viewModel(
-                            factory = viewModelFactory { initializer { TripListViewModel(repository) } },
-                        )
-                        TripListScreen(
-                            vm,
-                            myName = app.prefs.travellerName.orEmpty(),
-                            onOpenTrip = { nav.navigate(Routes.trip(it)) },
-                            onScanBill = { nav.navigate(Routes.expense(it, scan = true)) },
-                            // Trip planning starts in Explore: themes, suggested trips, places.
-                            onPlanTrip = { tab = HomeTab.EXPLORE },
+                    HomeTab.HOME -> BillFlow(
+                        tripsVm, myName,
+                        onScanBill = { nav.navigate(Routes.expense(it, scan = true)) },
+                        onOpenTrip = { nav.navigate(Routes.trip(it)) },
+                    ) { scan, newEvent ->
+                        HomeLanding(
+                            draft = app.prefs.draft,
+                            onSearch = { tab = HomeTab.DISCOVER },
+                            onContinue = { nav.navigate(Routes.plan(resume = -2)) },
+                            onScanBill = scan,
+                            onNewEvent = newEvent,
+                            onFares = { nav.navigate(Routes.fares()) },
+                            onHowLong = { nav.navigate(Routes.HOWLONG) },
                         )
                     }
-                    HomeTab.EXPLORE -> {
+                    HomeTab.DISCOVER -> {
                         val vm: ExploreViewModel = viewModel(
                             factory = viewModelFactory { initializer { ExploreViewModel(app.explore, app.prefs) } },
                         )
@@ -103,23 +115,32 @@ fun PackfareNavHost(app: PackfareApp) {
                             onResume = { index -> nav.navigate(Routes.plan(resume = index)) },
                         )
                     }
-                    HomeTab.FARES -> {
-                        val vm: FareSearchViewModel = viewModel(
-                            factory = viewModelFactory { initializer { FareSearchViewModel(app.fares, null, null, null, app.prefs) } },
-                        )
-                        FareSearchScreen(vm, onBack = null)
-                    }
-                    HomeTab.HOW_LONG -> HowLongScreen(
-                        onPlan = { stops, days, budget -> nav.navigate(Routes.plan(stops, days, budget)) },
+                    HomeTab.TRIPS -> TripListScreen(
+                        tripsVm,
+                        onOpenTrip = { nav.navigate(Routes.trip(it)) },
+                        // Planning starts in Discover: themes, suggested trips, places.
+                        onPlanTrip = { tab = HomeTab.DISCOVER },
                     )
-                    HomeTab.VAULT -> {
-                        val vm: VaultViewModel = viewModel(
+                    HomeTab.WALLET -> {
+                        val vaultVm: VaultViewModel = viewModel(
                             factory = viewModelFactory { initializer { VaultViewModel(app.vault) } },
                         )
-                        VaultScreen(vm, onOpen = { nav.navigate(Routes.doc(it)) })
+                        WalletScreen(
+                            tripsVm, vaultVm, myName,
+                            onScanBill = { nav.navigate(Routes.expense(it, scan = true)) },
+                            onOpenTrip = { nav.navigate(Routes.trip(it)) },
+                            onOpenDoc = { nav.navigate(Routes.doc(it)) },
+                        )
                     }
                 }
             }
+        }
+
+        composable(Routes.HOWLONG) {
+            HowLongScreen(
+                onBack = { nav.popBackStack() },
+                onPlan = { stops, days, budget -> nav.navigate(Routes.plan(stops, days, budget)) },
+            )
         }
 
         composable(Routes.TRIP, arguments = listOf(navArgument("tripId") { type = NavType.LongType })) { entry ->
@@ -230,6 +251,7 @@ fun PackfareNavHost(app: PackfareApp) {
             )
             DocViewerScreen(vm, onBack = { nav.popBackStack() })
         }
+    }
     }
 }
 

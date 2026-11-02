@@ -65,36 +65,18 @@ import com.packfare.app.ui.components.BudgetBar
 @Composable
 fun TripListScreen(
     vm: TripListViewModel,
-    myName: String,
     onOpenTrip: (Long) -> Unit,
     onPlanTrip: () -> Unit,
-    /** Open the bill scanner for this trip or event. */
-    onScanBill: (Long) -> Unit,
 ) {
     val trips by vm.trips.collectAsStateWithLifecycle()
-    var picking by remember { mutableStateOf(false) }
-    var newEvent by remember { mutableStateOf(false) }
-    // After "New event" from the scanner picker, go straight to scanning into it.
-    var scanAfterCreate by remember { mutableStateOf(false) }
 
-    Box(Modifier.fillMaxSize()) {
-    HomeBackdrop()
     Scaffold(
         containerColor = Color.Transparent,
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             TopAppBar(
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
-                title = {
-                    Column {
-                        Text("Packfare", fontWeight = FontWeight.Bold)
-                        Text(
-                            "Backpack India on a budget",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                },
+                title = { Text("Your trips and events", fontWeight = FontWeight.Bold) },
             )
         },
         floatingActionButton = {
@@ -106,22 +88,11 @@ fun TripListScreen(
         },
     ) { padding ->
         val list = trips
-        val header: @Composable () -> Unit = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                ScanBillCard(onClick = {
-                    if (list.isNullOrEmpty()) newEvent = true else picking = true
-                })
-                OutlinedButton(onClick = { scanAfterCreate = false; newEvent = true }, modifier = Modifier.fillMaxWidth()) {
-                    Text("🎫  New event (conference, client visit, offsite)")
-                }
-            }
-        }
         when {
             list == null -> Unit // loading; Room is fast so this is a blink
             list.isEmpty() -> Column(
                 Modifier.padding(padding).padding(16.dp).verticalScroll(rememberScrollState()),
             ) {
-                header()
                 EmptyState()
             }
             else -> LazyColumn(
@@ -133,14 +104,38 @@ fun TripListScreen(
                 ),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                item(key = "header") { header() }
                 items(list, key = { it.trip.id }) { summary ->
                     TripCard(summary, onClick = { onOpenTrip(summary.trip.id) })
                 }
             }
         }
     }
-    }
+}
+
+/**
+ * Shared "scan a bill / new event" behaviour for Home and Wallet: picks the trip or event, creates an
+ * event when asked, then calls [onScanBill] or [onOpenTrip]. [content] gets the two triggers.
+ */
+@Composable
+fun BillFlow(
+    vm: TripListViewModel,
+    myName: String,
+    onScanBill: (Long) -> Unit,
+    onOpenTrip: (Long) -> Unit,
+    content: @Composable (scan: () -> Unit, newEvent: () -> Unit) -> Unit,
+) {
+    val trips by vm.trips.collectAsStateWithLifecycle()
+    var picking by remember { mutableStateOf(false) }
+    var newEvent by remember { mutableStateOf(false) }
+    // After "New event" from the scanner picker, go straight to scanning into it.
+    var scanAfterCreate by remember { mutableStateOf(false) }
+
+    content(
+        {
+            if (trips.isNullOrEmpty()) { scanAfterCreate = true; newEvent = true } else picking = true
+        },
+        { scanAfterCreate = false; newEvent = true },
+    )
 
     if (picking) {
         PickTripDialog(
@@ -164,7 +159,7 @@ fun TripListScreen(
 }
 
 @Composable
-private fun ScanBillCard(onClick: () -> Unit) {
+fun ScanBillCard(onClick: () -> Unit) {
     Card(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(
@@ -186,7 +181,7 @@ private fun ScanBillCard(onClick: () -> Unit) {
 
 /** Choose which trip or event a scanned bill belongs to. */
 @Composable
-private fun PickTripDialog(
+internal fun PickTripDialog(
     trips: List<TripSummary>,
     onDismiss: () -> Unit,
     onPick: (Long) -> Unit,
@@ -217,7 +212,7 @@ private fun PickTripDialog(
 }
 
 @Composable
-private fun NewEventDialog(onDismiss: () -> Unit, onCreate: (name: String, company: String, place: String) -> Unit) {
+internal fun NewEventDialog(onDismiss: () -> Unit, onCreate: (name: String, company: String, place: String) -> Unit) {
     var name by remember { mutableStateOf("") }
     var company by remember { mutableStateOf("") }
     var place by remember { mutableStateOf("") }

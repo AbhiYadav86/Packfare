@@ -4,6 +4,18 @@ An offline-first Android app for backpackers in India (Indian and international)
 suggested budget, tracks daily spending and cash, maps the route with fare estimates, splits costs
 with travel buddies, scans receipts and keeps travel documents in an encrypted vault.
 
+## v0.13 – One trip spine, four tabs, a friendlier compass
+
+- **Four tabs:** Home, Discover, Trips, Wallet. Home has "Where to next?", your unfinished plan, and quick starts (Scan a bill, New event, Compare fares, How long?). Wallet holds Bills (scan, events, reimbursement) and Documents (the vault).
+- **Trip builder tabs:** Setup (where you'll stay first, with price differences between comfort levels), Itinerary, Travel, Book. A single Trip total bar stays on screen; tap it for the full breakdown and your budget cap. The old Budget tab is gone.
+- **Book** is a checklist of journeys and stays with one set of links each and a "booked" tick.
+- **Compass on every screen:** the page colour and a compass with a bit of personality (swinging needle, bobbing dial, a blinking face on the hub) are drawn once behind the whole app. The theme background is now transparent for that reason.
+
+## v0.12 – One budget card, hotel picker on top, things to do with costs
+
+- Place page: the separate "Suggested daily budget" card is gone. Choosing where you'll stay now sits at the top of "Your trip here, all in", with each option showing its room price per night and the all-in daily cost.
+- New "Things to do & what they cost" on every place, and per-day activities with costs in the planner's day-by-day itinerary (arrival days lighter, a total at the bottom). Sources in order: checked ideas (Jim Corbett: jeep and canter safaris, entry fees, temple, falls, museum, birdwatching), priced See/Do listings from Wikivoyage (Indian and foreign prices as a range), then typical ideas for the kind of place, labelled as typical.
+
 ## v0.11 – Wallpaper, events and reimbursement claims
 
 - Home screen wallpaper: a vintage compass (drawn in code, needle gently sways) over faded, slowly cross-fading open-licence photos of Indian destinations (Wikipedia/Wikimedia Commons, cached on the phone, compass-only when offline).

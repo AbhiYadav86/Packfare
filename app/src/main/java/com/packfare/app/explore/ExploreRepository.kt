@@ -2,6 +2,8 @@ package com.packfare.app.explore
 
 import com.packfare.app.data.ExtrasDao
 import com.packfare.app.data.PlaceCacheEntity
+import com.packfare.app.domain.ActivityIdea
+import com.packfare.app.domain.Activities
 import com.packfare.app.domain.CostTier
 import com.packfare.app.domain.DailyCosts
 import com.packfare.app.domain.Destination
@@ -20,7 +22,13 @@ data class PlaceInfo(
     val fromCache: Boolean,
     /** Names of the guide's "See" and "Do" listings. */
     val highlights: List<String> = emptyList(),
+    /** The guide's See/Do listings with whatever prices it gives. */
+    val guideActivities: List<ActivityIdea> = emptyList(),
 ) {
+    /** Things to do here with approximate costs: checked ideas, guide listings, then typical ones. */
+    val activities: List<ActivityIdea>
+        get() = Activities.ideasFor(asDestination(), guideActivities)
+
     /** Backpacker daily costs: table (or MID tier for unknown places) refined by live prices. */
     val costs: DailyCosts
         get() = WikivoyageParser.refine(local?.baseline ?: DailyCosts.forTier(CostTier.MID), stats)
@@ -71,12 +79,18 @@ class ExploreRepository(
         return WikivoyageParser.refine(destination.baseline, stats) to stats.sampleCount
     }
 
-    /** See/Do highlights for a hub: cached copy if we have one, otherwise fetched (when online). */
-    suspend fun highlights(destination: Destination, allowNetwork: Boolean): List<String> {
+    /**
+     * Things to do at a hub with approximate costs. Works offline: checked and typical ideas need no
+     * network, and the guide's listings are added when a cached or fetched copy exists.
+     */
+    suspend fun activities(destination: Destination, allowNetwork: Boolean): List<ActivityIdea> {
         val cached = dao.cachedPlace(destination.wikivoyage) ?: dao.cachedPlace(destination.name)
-        if (cached != null) return WikivoyageParser.highlights(cached.wikitext)
-        if (!allowNetwork) return emptyList()
-        return runCatching { place(destination.wikivoyage)?.highlights }.getOrNull().orEmpty()
+        val guide = when {
+            cached != null -> WikivoyageParser.activities(cached.wikitext)
+            allowNetwork -> runCatching { place(destination.wikivoyage)?.guideActivities }.getOrNull().orEmpty()
+            else -> emptyList()
+        }
+        return Activities.ideasFor(destination, guide)
     }
 
     /** A place page built only from Packfare's table: costs, map, fares and flights still work. */
@@ -90,6 +104,7 @@ class ExploreRepository(
         fetchedAt = System.currentTimeMillis(),
         fromCache = true,
         highlights = emptyList(),
+        guideActivities = emptyList(),
     )
 
     private fun PlaceCacheEntity.toInfo(fromCache: Boolean) = PlaceInfo(
@@ -102,6 +117,7 @@ class ExploreRepository(
         fetchedAt = fetchedAt,
         fromCache = fromCache,
         highlights = WikivoyageParser.highlights(wikitext),
+        guideActivities = WikivoyageParser.activities(wikitext),
     )
 
     companion object {
