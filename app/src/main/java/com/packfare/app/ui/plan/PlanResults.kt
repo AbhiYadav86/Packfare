@@ -88,7 +88,7 @@ import java.time.LocalDate
 private enum class ResultTab(val label: String) { SETUP("Setup"), ITINERARY("Itinerary"), TRAVEL("Travel"), BOOK("Book") }
 
 @Composable
-internal fun ResultsPage(vm: PlanTripViewModel, onCreated: (Long) -> Unit) {
+internal fun ResultsPage(vm: PlanTripViewModel, onCreated: (Long) -> Unit, onBack: () -> Unit) {
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var pickingLeg by remember { mutableStateOf<LegEstimate?>(null) }
     var editingTravellers by remember { mutableStateOf(false) }
@@ -100,8 +100,8 @@ internal fun ResultsPage(vm: PlanTripViewModel, onCreated: (Long) -> Unit) {
         topBar = {
             Column(Modifier.background(HeroGradient).statusBarsPadding()) {
                 Row(Modifier.padding(start = 4.dp, end = 8.dp, top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = vm::editSearch) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back to search", tint = Color.White)
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = Color.White)
                     }
                     Column(Modifier.weight(1f).clickable { vm.editSearch() }) {
                         Text(search.title, color = Color.White, style = MaterialTheme.typography.titleMedium,

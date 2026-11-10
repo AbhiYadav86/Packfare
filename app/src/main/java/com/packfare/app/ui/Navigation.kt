@@ -82,6 +82,7 @@ fun PackfareNavHost(app: PackfareApp) {
 
         composable(Routes.HOME) {
             var tab by rememberSaveable { mutableStateOf(HomeTab.HOME) }
+            var pendingQuery by rememberSaveable { mutableStateOf<String?>(null) }
             val tripsVm: TripListViewModel = viewModel(
                 factory = viewModelFactory { initializer { TripListViewModel(repository) } },
             )
@@ -95,7 +96,7 @@ fun PackfareNavHost(app: PackfareApp) {
                     ) { scan, newEvent ->
                         HomeLanding(
                             draft = app.prefs.draft,
-                            onSearch = { tab = HomeTab.DISCOVER },
+                            onSearch = { q -> pendingQuery = q.trim().ifBlank { null }; tab = HomeTab.DISCOVER },
                             onContinue = { nav.navigate(Routes.plan(resume = -2)) },
                             onScanBill = scan,
                             onNewEvent = newEvent,
@@ -107,6 +108,9 @@ fun PackfareNavHost(app: PackfareApp) {
                         val vm: ExploreViewModel = viewModel(
                             factory = viewModelFactory { initializer { ExploreViewModel(app.explore, app.prefs) } },
                         )
+                        androidx.compose.runtime.LaunchedEffect(pendingQuery) {
+                            pendingQuery?.let { vm.onQueryChange(it); pendingQuery = null }
+                        }
                         ExploreScreen(
                             vm,
                             onOpenPlace = { nav.navigate(Routes.place(it)) },
@@ -146,7 +150,7 @@ fun PackfareNavHost(app: PackfareApp) {
         composable(Routes.TRIP, arguments = listOf(navArgument("tripId") { type = NavType.LongType })) { entry ->
             val tripId = entry.arguments!!.getLong("tripId")
             val vm: TripDetailViewModel = viewModel(
-                factory = viewModelFactory { initializer { TripDetailViewModel(repository, tripId) } },
+                factory = viewModelFactory { initializer { TripDetailViewModel(repository, app.vault, app.explore, tripId) } },
             )
             TripDetailScreen(
                 vm = vm,
@@ -155,6 +159,8 @@ fun PackfareNavHost(app: PackfareApp) {
                 onEditExpense = { expenseId -> nav.navigate(Routes.expense(tripId, expenseId)) },
                 onTripDeleted = { nav.popBackStack(Routes.HOME, inclusive = false) },
                 onFindFares = { from, to, day -> nav.navigate(Routes.fares(from, to, day)) },
+                onOpenDoc = { nav.navigate(Routes.doc(it)) },
+                foreignVisitor = app.prefs.foreignVisitor,
             )
         }
 
@@ -188,7 +194,7 @@ fun PackfareNavHost(app: PackfareApp) {
                 vm = vm,
                 title = title,
                 onBack = { nav.popBackStack() },
-                onPlan = { place, from, nights -> nav.navigate(Routes.plan(listOf(place), days = nights, from = from)) },
+                onPlan = { place, from, nights, style -> nav.navigate(Routes.plan(listOf(place), days = nights, from = from, style = style.name)) },
                 onOpenPlace = { other -> nav.navigate(Routes.place(other)) },
                 onFindFares = { dest -> nav.navigate(Routes.fares(to = dest)) },
             )

@@ -73,7 +73,7 @@ fun PlaceScreen(
     vm: PlaceViewModel,
     title: String,
     onBack: () -> Unit,
-    onPlan: (place: String, from: String?, nights: Int) -> Unit,
+    onPlan: (place: String, from: String?, nights: Int, style: TravelStyle) -> Unit,
     onOpenPlace: (String) -> Unit,
     onFindFares: (String) -> Unit,
 ) {
@@ -117,7 +117,7 @@ private fun PlaceContent(
     vm: PlaceViewModel,
     place: PlaceInfo,
     modifier: Modifier,
-    onPlan: (place: String, from: String?, nights: Int) -> Unit,
+    onPlan: (place: String, from: String?, nights: Int, style: TravelStyle) -> Unit,
     onOpenPlace: (String) -> Unit,
     onFindFares: (String) -> Unit,
 ) {
@@ -216,7 +216,7 @@ private fun PlaceContent(
         }
 
         Button(
-            onClick = { onPlan(place.local?.name ?: place.title, vm.origin?.name, vm.nights) },
+            onClick = { onPlan(place.local?.name ?: place.title, vm.origin?.name, vm.nights, vm.style) },
             modifier = Modifier.fillMaxWidth().height(52.dp),
         ) {
             Text("Plan a trip here (with itinerary)")
@@ -347,9 +347,6 @@ private fun TripCostCard(vm: PlaceViewModel, onFindFares: (String) -> Unit) {
                     Text(Money.format(plan.perPersonPaise), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = vm::checkLiveFares, enabled = !vm.checkingFares) {
-                        Text(if (vm.checkingFares) "Checking…" else "✈️ Live flight prices")
-                    }
                     OutlinedButton(onClick = { onFindFares(vm.place?.local?.name ?: vm.place?.title.orEmpty()) }) {
                         Text("All fares")
                     }
@@ -441,7 +438,7 @@ private fun ActivitiesCard(place: PlaceInfo) {
                             modifier = Modifier.padding(start = 8.dp),
                         )
                     }
-                    val sub = listOfNotNull(a.note.takeIf { it.isNotBlank() }, if (a.source == com.packfare.app.domain.IdeaSource.TYPICAL) "typical price" else null)
+                    val sub = listOfNotNull(a.note.takeIf { it.isNotBlank() }, if (a.estimated) "estimated from the kind of place" else if (a.source == com.packfare.app.domain.IdeaSource.TYPICAL) "typical price" else null)
                         .joinToString(" · ")
                     if (sub.isNotBlank()) {
                         Text(sub, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -516,6 +513,16 @@ private fun FlightsCard(vm: PlaceViewModel) {
                         Text(Money.format(q.pricePaise), fontWeight = FontWeight.SemiBold)
                     }
                 }
+                // Each site quotes its own price and none offers a free public price feed, so show the
+                // range these sites usually fall in, from our estimate. "Find live fares" shows real ones.
+                val low = plan.airPaise * 85 / 100
+                val high = plan.airPaise * 125 / 100
+                Text(
+                    "Expect ≈${Money.format(low)}–${Money.format(high).removePrefix("₹")} for the flight on Google Flights, " +
+                        "Skyscanner, ixigo or MakeMyTrip (estimate; fares move with date and demand).",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     com.packfare.app.fares.BookingLinks.flightLinks(plan.from.code, plan.to.code, vm.travelDate).forEach { (site, url) ->
                         TextButton(onClick = { uri.openUri(url) }) { Text(site, style = MaterialTheme.typography.labelMedium) }

@@ -4,6 +4,22 @@ An offline-first Android app for backpackers in India (Indian and international)
 suggested budget, tracks daily spending and cash, maps the route with fare estimates, splits costs
 with travel buddies, scans receipts and keeps travel documents in an encrypted vault.
 
+## v0.15 – Plan, activities and bookings inside every trip
+
+- No more "price varies": things to do without a guide price get an estimate from the kind of place, marked "est.".
+- Place page flights: the usual price range for the flight (our estimate) next to Google Flights, Skyscanner, ixigo and MakeMyTrip. Those sites have no free public price feed, so real prices still come from "Find live fares".
+- Trip > Today: a day-by-day plan with suggested things to do (photos when online), + Add / Added, your own activities with a done tick, "Add activity" button.
+- Trip > Bookings (new tab): book links per journey and stay, "I've booked this" with the price paid, ticket/confirmation PDFs or photos stored encrypted with the trip. First time a planned trip opens, it asks if anything is already booked.
+- Budget after bookings: trip budget minus booked prices, minus planned prices still to book, minus bills logged.
+- Database version 4 (migration 3 to 4).
+
+## v0.14.1 – Fixes from testing
+
+- Place page: one "Live flight prices" button instead of two (the flights card keeps "Find live fares").
+- The stay level you pick on a place page (e.g. 3★ comfort) now carries into the planner.
+- Back from the planner goes to the place (or Home) you came from, not to the search form. Tap the title to edit the search.
+- Discover map: Cheap / Mid / Pricey chips filter the dots; pins load straight away; Near me shows "Finding you…" and then the closest place.
+
 ## v0.14 – Saved booking ticks and tickable activities
 
 - Booking ticks on the Book tab are remembered, and the checklist is saved with the trip (Trips > open trip > Today shows "Bookings" with tickboxes). Database version 3 with a migration.
@@ -15,7 +31,7 @@ with travel buddies, scans receipts and keeps travel documents in an encrypted v
 - **Four tabs:** Home, Discover, Trips, Wallet. Home has "Where to next?", your unfinished plan, and quick starts (Scan a bill, New event, Compare fares, How long?). Wallet holds Bills (scan, events, reimbursement) and Documents (the vault).
 - **Trip builder tabs:** Setup (where you'll stay first, with price differences between comfort levels), Itinerary, Travel, Book. A single Trip total bar stays on screen; tap it for the full breakdown and your budget cap. The old Budget tab is gone.
 - **Book** is a checklist of journeys and stays with one set of links each and a "booked" tick.
-- **Compass on every screen:** the page colour and a compass with a bit of personality (swinging needle, bobbing dial, a blinking face on the hub) are drawn once behind the whole app. The theme background is now transparent for that reason.
+- **Compass on every screen:** the page colour and a compass with a bit of personality (swinging needle, bobbing dial) are drawn once behind the whole app. The theme background is now transparent for that reason.
 
 ## v0.12 – One budget card, hotel picker on top, things to do with costs
 
@@ -266,3 +282,9 @@ app/src/main/java/com/packfare/app/
 - Remaining backpacker features: split with strangers (4), fair-price guide (7), checklists (9),
   shareable trip card (10), states collected (11), safety basics (12)
 - Home-currency display for international travellers
+
+## v0.16.0
+- Trip page: new **Hotels** tab per stop with Booking.com (opens filtered to your nightly budget), Agoda and Google Hotels links, plus the guide's priced places to sleep. Places that fit the budget are highlighted.
+- Home: the search box is now a real text field with a **Go** button; it opens Discover with your search applied.
+- Home shows the app version, so you can confirm which build is installed.
+- Affiliate links (Travelpayouts offers exist for Agoda and Booking.com) are not wired yet; plain links earn nothing.

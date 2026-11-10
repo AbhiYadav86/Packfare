@@ -68,7 +68,9 @@ class PlanTripViewModel(
     initialStyle: TravelStyle? = null,
 ) : ViewModel() {
 
-    var phase by mutableStateOf(if (initialStops.isNotEmpty() || resume != -1) PlanPhase.RESULTS else PlanPhase.SEARCH)
+    /** Opened straight onto results (from a place, a suggestion or Home): Back should leave, not show the search form. */
+    val openedOnResults: Boolean = initialStops.isNotEmpty() || resume != -1
+    var phase by mutableStateOf(if (openedOnResults) PlanPhase.RESULTS else PlanPhase.SEARCH)
     var name by mutableStateOf("")
     var myName by mutableStateOf(prefs.travellerName.orEmpty())
     var startDate by mutableStateOf(LocalDate.now().plusDays(7))
@@ -341,10 +343,16 @@ class PlanTripViewModel(
         val plan = suggestion ?: return emptyList()
         val done = ticked
         val legs = plan.legs.mapIndexed { i, l ->
-            BookingItem("leg$i", "${l.from.name} → ${l.to.name} · ${l.option.mode.label}", "leg$i" in done)
+            BookingItem(
+                "leg$i", "${l.from.name} → ${l.to.name} · ${l.option.mode.label}", "leg$i" in done,
+                plannedPaise = l.option.farePaise * plan.people,
+            )
         }
         val stays = stops.mapIndexed { i, st ->
-            BookingItem("stay$i", "Stay in ${st.destination.name} · ${st.nights} night${if (st.nights == 1) "" else "s"}", "stay$i" in done)
+            BookingItem(
+                "stay$i", "Stay in ${st.destination.name} · ${st.nights} night${if (st.nights == 1) "" else "s"}", "stay$i" in done,
+                plannedPaise = (plan.stops.getOrNull(i)?.daily?.stayPaise ?: 0L) * st.nights * plan.people,
+            )
         }
         return legs + stays
     }

@@ -136,8 +136,17 @@ class ExploreViewModel(private val repo: ExploreRepository, private val prefs: P
         private set
     var locationError by mutableStateOf<String?>(null)
         private set
+    /** True from tapping Near me until a fix or an error arrives. */
+    var locating by mutableStateOf(false)
+        private set
+
+    fun startLocating() {
+        locating = true
+        locationError = null
+    }
 
     fun onLocation(loc: Pair<Double, Double>?) {
+        locating = false
         if (loc == null) {
             locationError = "Couldn't get your location. Check that location is on and allowed for Packfare."
             return

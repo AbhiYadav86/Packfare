@@ -243,22 +243,45 @@ fun ExploreScreen(
 
                 item { Header("Map") }
                 item {
-                    val pins = remember {
-                        Destinations.all.map { d ->
-                            MapPin(
-                                id = d.wikivoyage,
-                                lat = d.lat,
-                                lon = d.lon,
-                                color = when (d.tier) {
-                                    CostTier.LOW -> PinColors.low
-                                    CostTier.MID -> PinColors.mid
-                                    CostTier.HIGH -> PinColors.high
-                                },
-                                label = d.name,
-                                radius = if (d.hub) 6f else 3.5f,
+                    // Which price levels to show. Empty = all.
+                    var tiers by rememberSaveable { mutableStateOf(setOf<String>()) }
+                    val pins = remember(tiers) {
+                        Destinations.all
+                            .filter { tiers.isEmpty() || it.tier.name in tiers }
+                            .map { d ->
+                                MapPin(
+                                    id = d.wikivoyage,
+                                    lat = d.lat,
+                                    lon = d.lon,
+                                    color = when (d.tier) {
+                                        CostTier.LOW -> PinColors.low
+                                        CostTier.MID -> PinColors.mid
+                                        CostTier.HIGH -> PinColors.high
+                                    },
+                                    label = d.name,
+                                    radius = if (d.hub) 6f else 3.5f,
+                                )
+                            }
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
+                        listOf(
+                            Triple(CostTier.LOW, "🟢 Cheap", "cheap"),
+                            Triple(CostTier.MID, "🟠 Mid", "mid"),
+                            Triple(CostTier.HIGH, "🔴 Pricey", "pricey"),
+                        ).forEach { (tier, label, _) ->
+                            androidx.compose.material3.FilterChip(
+                                selected = tier.name in tiers,
+                                onClick = { tiers = if (tier.name in tiers) tiers - tier.name else tiers + tier.name },
+                                label = { Text(label) },
                             )
                         }
                     }
+                    Text(
+                        (if (tiers.isEmpty()) "All ${pins.size} places" else "${pins.size} places") + " · tap a dot to open it. Tap a level to show only those.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
                     Card(Modifier.fillMaxWidth().padding(top = 8.dp)) {
                         PackfareMap(
                             pins = pins,
@@ -269,10 +292,13 @@ fun ExploreScreen(
                         )
                     }
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
-                        FilledTonalButton(onClick = requestLocation) { Text("📍 Near me") }
+                        FilledTonalButton(onClick = { vm.startLocating(); requestLocation() }, enabled = !vm.locating) {
+                            Text(if (vm.locating) "Finding you…" else "📍 Near me")
+                        }
                         Spacer(Modifier.width(12.dp))
+                        val closest = vm.nearby.firstOrNull()
                         Text(
-                            "🟢 cheap  🟠 mid  🔴 pricey · tap a dot",
+                            if (closest != null) "Closest: ${closest.first.name}, ${closest.second} km" else "Shows where you are and the nearest places",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )

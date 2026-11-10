@@ -45,7 +45,7 @@ class ActivitiesTest {
         assertEquals("free", ActivityIdea("a", 0L).costLabel)
         assertEquals("≈₹500", ActivityIdea("a", 50_000L).costLabel)
         assertEquals("free to ≈₹100", ActivityIdea("a", 0L, 10_000L).costLabel)
-        assertEquals("price varies", ActivityIdea("a").costLabel)
+        assertEquals("≈₹50–300 est.", ActivityIdea("a").costLabel)
     }
 
     @Test

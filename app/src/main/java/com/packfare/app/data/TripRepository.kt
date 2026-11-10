@@ -20,6 +20,11 @@ class TripRepository(
     fun shares(tripId: Long) = dao.shares(tripId)
     fun legs(tripId: Long) = dao.legs(tripId)
     fun cashTopUps(tripId: Long) = dao.cashTopUps(tripId)
+    fun activities(tripId: Long) = dao.activities(tripId)
+
+    suspend fun addActivity(a: ActivityEntity): Long = dao.insertActivity(a)
+    suspend fun updateActivity(a: ActivityEntity) = dao.updateActivity(a)
+    suspend fun deleteActivity(id: Long) = dao.deleteActivity(id)
 
     suspend fun createTrip(name: String, destination: String, budgetPaise: Long): Long =
         dao.insertTrip(TripEntity(name = name.trim(), destination = destination.trim(), budgetPaise = budgetPaise))

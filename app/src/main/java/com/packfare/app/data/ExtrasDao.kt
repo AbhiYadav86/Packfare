@@ -13,6 +13,9 @@ interface ExtrasDao {
     @Query("SELECT * FROM documents ORDER BY createdAt DESC")
     fun documents(): Flow<List<DocumentEntity>>
 
+    @Query("SELECT * FROM documents WHERE tripId = :tripId ORDER BY createdAt DESC")
+    fun documentsForTrip(tripId: Long): Flow<List<DocumentEntity>>
+
     @Query("SELECT * FROM documents WHERE id = :id")
     suspend fun document(id: Long): DocumentEntity?
 

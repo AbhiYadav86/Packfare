@@ -47,6 +47,8 @@ import kotlinx.coroutines.launch
 
 private enum class TripTab(val label: String) {
     TODAY("Today"),
+    BOOKINGS("Bookings"),
+    HOTELS("Hotels"),
     EXPENSES("Expenses"),
     ROUTE("Route"),
     BALANCES("Settle up"),
@@ -61,10 +63,21 @@ fun TripDetailScreen(
     onEditExpense: (Long) -> Unit,
     onTripDeleted: () -> Unit,
     onFindFares: (from: String, to: String, epochDay: Long?) -> Unit,
+    onOpenDoc: (Long) -> Unit,
+    foreignVisitor: Boolean,
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
+    val activities by vm.activities.collectAsStateWithLifecycle()
+    val docs by vm.documents.collectAsStateWithLifecycle()
+    var addingActivity by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val snackbar = remember { SnackbarHostState() }
+    androidx.compose.runtime.LaunchedEffect(vm.message) {
+        vm.message?.let {
+            snackbar.showSnackbar(it)
+            vm.message = null
+        }
+    }
     val scope = rememberCoroutineScope()
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var showAddPerson by rememberSaveable { mutableStateOf(false) }
@@ -117,6 +130,13 @@ fun TripDetailScreen(
             when (currentTab) {
                 TripTab.TODAY, TripTab.EXPENSES -> if (state.members.isNotEmpty()) {
                     Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        if (currentTab == TripTab.TODAY) {
+                            ExtendedFloatingActionButton(
+                                onClick = { addingActivity = true },
+                                icon = { Icon(Icons.Filled.Add, contentDescription = null) },
+                                text = { Text("Add activity") },
+                            )
+                        }
                         SmallFloatingActionButton(onClick = { onAddExpense(true) }) {
                             Text("🧾", style = MaterialTheme.typography.titleMedium)
                         }
@@ -137,7 +157,7 @@ fun TripDetailScreen(
                     icon = { Icon(Icons.Filled.Add, contentDescription = null) },
                     text = { Text("Add person") },
                 )
-                TripTab.BALANCES -> Unit
+                TripTab.BALANCES, TripTab.BOOKINGS, TripTab.HOTELS -> Unit
             }
         },
     ) { padding ->
@@ -154,7 +174,32 @@ fun TripDetailScreen(
                     onEditPlan = { editingPlan = true },
                     onAddCash = { addingCash = true },
                     onDeleteCash = vm::deleteCash,
-                    onToggleBooking = vm::toggleBooking,
+                    activities = activities,
+                    onAddSuggestion = { title, day, cost, note -> vm.addActivity(title, day, cost, note) },
+                    onSetActivityDone = vm::setActivityDone,
+                    onDeleteActivity = vm::deleteActivity,
+                    onAddActivity = { addingActivity = true },
+                    onLogBill = { onAddExpense(false) },
+                )
+                TripTab.BOOKINGS -> BookingsTab(
+                    trip = state.trip,
+                    legs = state.legs,
+                    plan = state.plan,
+                    people = state.members.size.coerceAtLeast(1),
+                    spentPaise = state.spentPaise,
+                    docs = docs,
+                    foreignVisitor = foreignVisitor,
+                    onSetBooked = vm::setBooked,
+                    onAddDocument = { uri, title, kind -> vm.addDocument(uri, title, kind) },
+                    onOpenDoc = onOpenDoc,
+                )
+                TripTab.HOTELS -> HotelsTab(
+                    trip = state.trip,
+                    plan = state.plan,
+                    people = state.members.size.coerceAtLeast(1),
+                    style = state.style,
+                    stays = vm.stays,
+                    onLoadStays = vm::loadStays,
                 )
                 TripTab.EXPENSES -> ExpensesTab(
                     state = state,
@@ -194,6 +239,25 @@ fun TripDetailScreen(
                 }
             },
         )
+    }
+
+    if (addingActivity) {
+        AddActivityDialog(
+            plan = state.plan,
+            onDismiss = { addingActivity = false },
+            onAdd = { title, day, cost ->
+                vm.addActivity(title, day, cost)
+                addingActivity = false
+            },
+        )
+    }
+
+    // The first time a planned trip is opened, ask whether anything is already booked.
+    state.trip?.let { t ->
+        val items = com.packfare.app.domain.BookingItem.decode(t.bookings)
+        if (state.loaded && items.isNotEmpty() && !t.bookingsAsked) {
+            AlreadyBookedDialog(items, onSave = vm::saveBookingAnswers, onSkip = vm::skipBookingQuestion)
+        }
     }
 
     if (editingPlan) {

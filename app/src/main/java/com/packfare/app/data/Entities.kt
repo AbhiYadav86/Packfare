@@ -28,6 +28,8 @@ data class TripEntity(
     val company: String? = null,
     /** Checklist of things to book, see [com.packfare.app.domain.BookingItem]. Null = none. */
     val bookings: String? = null,
+    /** The "have you already booked anything?" question has been answered (or skipped). */
+    val bookingsAsked: Boolean = false,
 ) {
     val isEvent: Boolean get() = kind == KIND_EVENT
 
@@ -144,6 +146,29 @@ data class DocumentEntity(
     val fileName: String,
     val mimeType: String,
     val sizeBytes: Long,
+    val createdAt: Long = System.currentTimeMillis(),
+    /** Set when the file was added inside a trip (tickets, hotel confirmations). */
+    val tripId: Long? = null,
+)
+
+/** Something planned or done on a trip that isn't a bill: a museum visit, a safari, a sunset. */
+@Entity(
+    tableName = "activities",
+    foreignKeys = [
+        ForeignKey(entity = TripEntity::class, parentColumns = ["id"], childColumns = ["tripId"], onDelete = ForeignKey.CASCADE),
+    ],
+    indices = [Index("tripId")],
+)
+data class ActivityEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val tripId: Long,
+    val title: String,
+    /** The day as an epoch day, null = no day chosen. */
+    val dayEpoch: Long? = null,
+    /** Estimated cost per person in paise (0 = free). */
+    val costPaise: Long = 0,
+    val note: String? = null,
+    val done: Boolean = false,
     val createdAt: Long = System.currentTimeMillis(),
 )
 

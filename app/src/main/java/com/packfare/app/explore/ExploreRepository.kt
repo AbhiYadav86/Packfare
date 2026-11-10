@@ -93,6 +93,17 @@ class ExploreRepository(
         return Activities.ideasFor(destination, guide)
     }
 
+    /** The guide's priced places to sleep, cheapest first. Uses the cached article, or fetches it when allowed. */
+    suspend fun stays(destination: Destination, allowNetwork: Boolean): List<PriceSample> {
+        val cached = dao.cachedPlace(destination.wikivoyage) ?: dao.cachedPlace(destination.name)
+        val stats = when {
+            cached != null -> WikivoyageParser.parse(cached.wikitext)
+            allowNetwork -> runCatching { place(destination.wikivoyage)?.stats }.getOrNull()
+            else -> null
+        }
+        return stats?.sleep.orEmpty().sortedBy { it.pricePaise }
+    }
+
     /** A place page built only from Packfare's table: costs, map, fares and flights still work. */
     private fun offlineInfo(d: Destination) = PlaceInfo(
         title = d.name,

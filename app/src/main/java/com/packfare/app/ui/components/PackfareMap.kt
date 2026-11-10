@@ -66,6 +66,7 @@ fun PackfareMap(
     val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val clickHandler by rememberUpdatedState(onPinClick)
+    val pinsNow by rememberUpdatedState(pins)
     var map by remember { mutableStateOf<MapLibreMap?>(null) }
     var style by remember { mutableStateOf<Style?>(null) }
 
@@ -83,6 +84,12 @@ fun PackfareMap(
                 m.cameraPosition = CameraPosition.Builder().target(LatLng(22.5, 80.0)).zoom(3.6).build()
                 m.setStyle(Style.Builder().fromUri(STYLE_URL)) { s ->
                     addLayers(s)
+                    // Push the pins right away, not only from the effect below, so they show on first load.
+                    runCatching {
+                        (s.getSource(PINS_SOURCE) as? GeoJsonSource)?.setGeoJson(
+                            FeatureCollection.fromFeatures(pinsNow.map { it.toFeature() }),
+                        )
+                    }
                     style = s
                 }
                 m.addOnMapClickListener { latLng ->

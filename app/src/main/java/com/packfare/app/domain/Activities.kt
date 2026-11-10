@@ -21,21 +21,24 @@ data class ActivityIdea(
     val highPaise: Long? = null,
     val note: String = "",
     val source: IdeaSource = IdeaSource.CURATED,
+    /** The price was guessed from the kind of place (no price in the guide). */
+    val estimated: Boolean = false,
 ) {
     /** What goes into the budget: the low end, because backpacker trips plan on cheap options. */
     val planPaise: Long get() = lowPaise ?: 0L
 
-    /** "Free", "≈₹1,100", "≈₹600–1,200" or "price varies". */
+    /** "free", "≈₹1,100", "≈₹600–1,200", with "est." when guessed from the kind of place. */
     val costLabel: String
         get() {
-            val low = lowPaise ?: return "price varies"
+            val low = lowPaise ?: return "≈₹50–300 est."
             val high = highPaise
-            return when {
+            val label = when {
                 low == 0L && (high == null || high == 0L) -> "free"
                 low == 0L && high != null -> "free to ≈${Money.format(high)}"
                 high != null && high > low -> "≈${Money.format(low)}–${Money.format(high).removePrefix("₹")}"
                 else -> "≈${Money.format(low)}"
             }
+            return if (estimated) "$label est." else label
         }
 }
 
@@ -127,7 +130,8 @@ object Activities {
         val out = mutableListOf<ActivityIdea>()
         out += (checked[destination.name].orEmpty()).fresh()
         out += guide.filter { it.lowPaise != null }.fresh()
-        out += guide.filter { it.lowPaise == null }.fresh()
+        // Listings without a price get an estimate from the kind of place, clearly marked "est.".
+        out += guide.filter { it.lowPaise == null }.map { ActivityEstimator.withEstimate(it) }.fresh()
         // Typical ideas only top up a thin list; places with good data aren't diluted.
         if (out.size < 6) out += typicalFor(Themes.of(destination)).fresh()
         return out.take(max)
@@ -151,4 +155,41 @@ object ActivityPicks {
      */
     fun extraPaise(days: List<ItineraryDay>, skipped: Set<String>, allowancePaise: Long): Long =
         (pickedPaise(days, skipped) - allowancePaise).coerceAtLeast(0L)
+}
+
+/** A rough price for things to do that the guide lists without one, guessed from the name. Rupees, per person. */
+object ActivityEstimator {
+    private data class Rule(val words: List<String>, val lowRs: Long, val highRs: Long)
+
+    // First match wins, so specific things come before general ones.
+    private val rules = listOf(
+        Rule(listOf("camel", "desert safari", "dune"), 500, 2_000),
+        Rule(listOf("safari", "national park", "sanctuary", "wildlife", "tiger reserve"), 300, 2_500),
+        Rule(listOf("rafting", "paragliding", "bungee", "zipline", "scuba", "snorkel", "parasail", "water sport"), 1_000, 4_000),
+        Rule(listOf("trek", "hike", "hiking"), 300, 1_500),
+        Rule(listOf("boat", "cruise", "ferry ride", "shikara"), 200, 800),
+        Rule(listOf("light and sound", "sound and light", "show"), 100, 500),
+        Rule(listOf("museum", "gallery", "haveli"), 20, 300),
+        Rule(listOf("fort", "palace", "monument", "tomb", "mahal", "citadel", "qila"), 50, 600),
+        Rule(listOf("cave", "caves"), 50, 300),
+        Rule(listOf("zoo", "aquarium"), 50, 300),
+        Rule(listOf("temple", "mandir", "gurdwara", "mosque", "masjid", "church", "monastery", "gompa", "ashram", "shrine", "dargah"), 0, 100),
+        Rule(listOf("waterfall", "falls"), 0, 100),
+        Rule(listOf("lake", "ghat", "beach", "viewpoint", "sunset", "sunrise", "point", "market", "bazaar", "square", "street", "walk"), 0, 100),
+        Rule(listOf("garden", "park"), 20, 100),
+    )
+
+    /** (low, high) in paise for [name]. Falls back to a modest sightseeing range. */
+    fun estimate(name: String): Pair<Long, Long> {
+        val n = name.lowercase()
+        val rule = rules.firstOrNull { r -> r.words.any { it in n } }
+        val (lo, hi) = rule?.let { it.lowRs to it.highRs } ?: (50L to 300L)
+        return lo * 100 to hi * 100
+    }
+
+    fun withEstimate(idea: ActivityIdea): ActivityIdea {
+        if (idea.lowPaise != null) return idea
+        val (lo, hi) = estimate(idea.name)
+        return idea.copy(lowPaise = lo, highPaise = hi, estimated = true)
+    }
 }

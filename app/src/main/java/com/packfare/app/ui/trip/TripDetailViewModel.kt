@@ -1,13 +1,25 @@
 package com.packfare.app.ui.trip
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.packfare.app.data.ActivityEntity
 import com.packfare.app.data.CashTopUpEntity
+import com.packfare.app.data.DocumentEntity
 import com.packfare.app.data.ExpenseEntity
 import com.packfare.app.data.LegEntity
 import com.packfare.app.data.MemberEntity
 import com.packfare.app.data.TripEntity
 import com.packfare.app.data.TripRepository
+import com.packfare.app.domain.Activities
+import com.packfare.app.domain.BookingItem
+import com.packfare.app.domain.BudgetPlanner
+import com.packfare.app.domain.ItineraryBuilder
+import com.packfare.app.domain.ItineraryDay
+import com.packfare.app.domain.PlanStop
+import com.packfare.app.vault.DocKind
+import com.packfare.app.vault.Vault
 import com.packfare.app.domain.CashReport
 import com.packfare.app.domain.CashWallet
 import com.packfare.app.domain.Category
@@ -72,6 +84,8 @@ data class TripDetailState(
     val cash: CashReport? = null,
     val cashTopUps: List<CashTopUpEntity> = emptyList(),
     val style: TravelStyle = TravelStyle.BACKPACKER,
+    /** Day-by-day suggestions for the trip, with things to do and what they cost. */
+    val plan: List<ItineraryDay> = emptyList(),
 )
 
 private data class Core(
@@ -83,8 +97,33 @@ private data class Core(
 
 class TripDetailViewModel(
     private val repository: TripRepository,
+    private val vault: Vault,
+    private val explore: com.packfare.app.explore.ExploreRepository,
     private val tripId: Long,
 ) : ViewModel() {
+
+    /** Priced places to sleep from the guide, by destination name. Filled in by [loadStays]. */
+    var stays by androidx.compose.runtime.mutableStateOf<Map<String, List<com.packfare.app.explore.PriceSample>>>(emptyMap())
+        private set
+
+    fun loadStays(places: List<com.packfare.app.domain.Destination>) {
+        places.filter { it.name !in stays }.forEach { d ->
+            viewModelScope.launch {
+                val found = runCatching { explore.stays(d, allowNetwork = true) }.getOrDefault(emptyList())
+                stays = stays + (d.name to found)
+            }
+        }
+    }
+
+
+    val activities: StateFlow<List<ActivityEntity>> = repository.activities(tripId)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val documents: StateFlow<List<DocumentEntity>> = vault.documentsForTrip(tripId)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    var message by androidx.compose.runtime.mutableStateOf<String?>(null)
+
 
     val state: StateFlow<TripDetailState> = combine(
         combine(
@@ -195,7 +234,26 @@ class TripDetailViewModel(
             cash = cash,
             cashTopUps = topUps,
             style = style,
+            plan = buildPlan(trip, legs, style),
         )
+    }
+
+    /** Day-by-day suggestions from the trip's places and nights. Empty for events or trips without known places. */
+    private fun buildPlan(trip: TripEntity?, legs: List<LegEntity>, style: TravelStyle): List<ItineraryDay> {
+        if (trip == null || trip.isEvent) return emptyList()
+        val places = trip.destination.split("→").map { it.trim() }.filter { it.isNotBlank() }
+            .mapNotNull { Destinations.find(it) }
+            .distinctBy { it.name }
+        if (places.isEmpty()) return emptyList()
+        val planned = trip.plannedDays.coerceAtLeast(places.size)
+        val stops = places.mapIndexed { i, d ->
+            val fromLegs = legs.firstOrNull { it.toName == d.name && it.nightsAtDestination > 0 }?.nightsAtDestination
+            val even = planned / places.size + if (i < planned % places.size) 1 else 0
+            PlanStop(d, (fromLegs ?: even).coerceAtLeast(1))
+        }
+        val suggestion = BudgetPlanner.suggest(stops, style, 1)
+        val ideas = places.associate { it.name to Activities.ideasFor(it, emptyList()) }
+        return ItineraryBuilder.days(suggestion, trip.startEpochDay?.let { LocalDate.ofEpochDay(it) }, ideas)
     }
 
     /** The next stop with few ATMs (and nights planned there), if any is coming up. */
@@ -249,6 +307,53 @@ class TripDetailViewModel(
     }
 
     // ---- Trip settings ----
+
+    // ---- Activities ----
+
+    fun addActivity(title: String, dayEpoch: Long?, costPaise: Long, note: String? = null) {
+        if (title.isBlank()) return
+        viewModelScope.launch {
+            repository.addActivity(ActivityEntity(tripId = tripId, title = title.trim(), dayEpoch = dayEpoch, costPaise = costPaise, note = note))
+        }
+    }
+
+    fun setActivityDone(a: ActivityEntity, done: Boolean) {
+        viewModelScope.launch { repository.updateActivity(a.copy(done = done)) }
+    }
+
+    fun deleteActivity(a: ActivityEntity) {
+        viewModelScope.launch { repository.deleteActivity(a.id) }
+    }
+
+    // ---- Bookings ----
+
+    private fun saveBookings(items: List<BookingItem>, asked: Boolean = true) {
+        val trip = state.value.trip ?: return
+        viewModelScope.launch {
+            repository.updateTrip(trip.copy(bookings = BookingItem.encode(items), bookingsAsked = asked || trip.bookingsAsked))
+        }
+    }
+
+    /** Answers to "have you already booked any of these?": done flags with the price paid, if given. */
+    fun saveBookingAnswers(items: List<BookingItem>) = saveBookings(items)
+
+    fun skipBookingQuestion() {
+        val trip = state.value.trip ?: return
+        viewModelScope.launch { repository.updateTrip(trip.copy(bookingsAsked = true)) }
+    }
+
+    /** Mark one booking done with what you paid (null if you'd rather not say), or undo it. */
+    fun setBooked(key: String, done: Boolean, actualPaise: Long?) {
+        val trip = state.value.trip ?: return
+        saveBookings(BookingItem.setBooked(BookingItem.decode(trip.bookings), key, done, actualPaise))
+    }
+
+    fun addDocument(uri: android.net.Uri, title: String, kind: DocKind) {
+        viewModelScope.launch {
+            runCatching { vault.add(uri, title, kind, tripId) }
+                .onFailure { message = it.message ?: "Couldn't add that file" }
+        }
+    }
 
     fun toggleBooking(key: String) {
         val trip = state.value.trip ?: return

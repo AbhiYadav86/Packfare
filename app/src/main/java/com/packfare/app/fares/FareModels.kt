@@ -196,6 +196,16 @@ object BookingLinks {
         "https://www.booking.com/searchresults.html?ss=" + enc("${place.name.substringBefore(" (")}, India") +
             "&checkin=$checkIn&checkout=$checkOut&group_adults=${adults.coerceAtLeast(1)}&no_rooms=${rooms.coerceAtLeast(1)}&group_children=0"
 
+    /** Booking.com search with a per-night price ceiling in rupees (their "your budget" filter). */
+    fun bookingComUnder(place: Destination, checkIn: LocalDate, checkOut: LocalDate, adults: Int, rooms: Int, maxPerNightPaise: Long): String =
+        bookingCom(place, checkIn, checkOut, adults, rooms) +
+            "&selected_currency=INR&nflt=" + enc("price=INR-min-${(maxPerNightPaise / 100).coerceAtLeast(100)}-1")
+
+    /** Agoda search by place name and dates, prices in rupees. */
+    fun agoda(place: Destination, checkIn: LocalDate, checkOut: LocalDate, adults: Int, rooms: Int): String =
+        "https://www.agoda.com/search?textToSearch=" + enc("${place.name.substringBefore(" (")}, India") +
+            "&checkIn=$checkIn&checkOut=$checkOut&adults=${adults.coerceAtLeast(1)}&rooms=${rooms.coerceAtLeast(1)}&currencyCode=INR"
+
     fun googleHotels(place: Destination, hostels: Boolean): String =
         "https://www.google.com/travel/search?q=" + enc((if (hostels) "hostels in " else "hotels in ") + place.name.substringBefore(" (") + ", India")
 

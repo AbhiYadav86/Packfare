@@ -157,4 +157,18 @@ abstract class TripDao {
 
     @Query("DELETE FROM expenses WHERE id = :expenseId")
     abstract suspend fun deleteExpense(expenseId: Long)
+
+    // ---- Activities ----
+
+    @Query("SELECT * FROM activities WHERE tripId = :tripId ORDER BY dayEpoch IS NULL, dayEpoch, createdAt")
+    abstract fun activities(tripId: Long): Flow<List<ActivityEntity>>
+
+    @Insert
+    abstract suspend fun insertActivity(activity: ActivityEntity): Long
+
+    @Update
+    abstract suspend fun updateActivity(activity: ActivityEntity)
+
+    @Query("DELETE FROM activities WHERE id = :id")
+    abstract suspend fun deleteActivity(id: Long)
 }

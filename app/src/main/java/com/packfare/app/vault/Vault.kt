@@ -43,7 +43,9 @@ class Vault(private val context: Context, private val dao: ExtrasDao) {
 
     fun documents() = dao.documents()
 
-    suspend fun add(source: Uri, title: String, kind: DocKind): Long = withContext(Dispatchers.IO) {
+    fun documentsForTrip(tripId: Long) = dao.documentsForTrip(tripId)
+
+    suspend fun add(source: Uri, title: String, kind: DocKind, tripId: Long? = null): Long = withContext(Dispatchers.IO) {
         val resolver = context.contentResolver
         val mime = resolver.getType(source) ?: "application/octet-stream"
         val bytes = resolver.openInputStream(source).use { input ->
@@ -60,6 +62,7 @@ class Vault(private val context: Context, private val dao: ExtrasDao) {
                 fileName = fileName,
                 mimeType = mime,
                 sizeBytes = bytes.size.toLong(),
+                tripId = tripId,
             ),
         )
     }

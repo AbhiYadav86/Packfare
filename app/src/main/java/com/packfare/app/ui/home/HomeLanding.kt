@@ -12,7 +12,16 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -31,7 +40,7 @@ import com.packfare.app.ui.components.HomeBackdrop
 @Composable
 fun HomeLanding(
     draft: TripSearch?,
-    onSearch: () -> Unit,
+    onSearch: (String) -> Unit,
     onContinue: () -> Unit,
     onScanBill: () -> Unit,
     onNewEvent: () -> Unit,
@@ -48,16 +57,20 @@ fun HomeLanding(
                 Text("PACKFARE", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                 Text("Where to next?", fontSize = 32.sp, fontWeight = FontWeight.Bold, lineHeight = 36.sp)
             }
-            Card(onClick = onSearch, modifier = Modifier.fillMaxWidth()) {
-                Row(Modifier.padding(horizontal = 16.dp, vertical = 16.dp)) {
-                    Text("🔎", fontSize = 18.sp)
-                    Text(
-                        "  Search places, or try “beach in November”",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.bodyLarge,
-                    )
-                }
-            }
+            var query by remember { mutableStateOf("") }
+            OutlinedTextField(
+                value = query,
+                onValueChange = { query = it },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                placeholder = { Text("Search places, or try “beach in November”") },
+                leadingIcon = { Text("🔎", fontSize = 18.sp) },
+                trailingIcon = {
+                    Button(onClick = { onSearch(query) }, modifier = Modifier.padding(end = 6.dp)) { Text("Go") }
+                },
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(onSearch = { onSearch(query) }),
+            )
             if (draft != null) {
                 Card(
                     onClick = onContinue,
@@ -84,6 +97,12 @@ fun HomeLanding(
                 QuickTile("🚆", "Compare fares", "Flights, trains, buses", onFares, Modifier.weight(1f))
                 QuickTile("🧮", "How long?", "Turn money into days", onHowLong, Modifier.weight(1f))
             }
+            Text(
+                "Packfare v${com.packfare.app.BuildConfig.VERSION_NAME}",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            )
         }
     }
 }

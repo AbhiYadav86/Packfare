@@ -178,7 +178,7 @@ fun PageBackdrop(modifier: Modifier = Modifier, content: @Composable () -> Unit)
 
 /**
  * A vintage compass with a bit of personality: it swings its needle on arrival and wobbles to a
- * jaunty tilt, the whole dial bobs gently, and the hub has a little face that blinks. A dotted trail
+ * jaunty tilt, and the whole dial bobs gently. A dotted trail
  * and two sparkles keep it company. Decorative only; it never takes touches.
  */
 @Composable
@@ -202,14 +202,6 @@ fun CompassBackdrop(
     val bob by inf.animateFloat(
         initialValue = -3f, targetValue = 3f,
         animationSpec = infiniteRepeatable(tween(6000, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "bob",
-    )
-    // 1 = eyes open; dips to 0.1 for a quick blink every ~5 seconds.
-    val eyes by inf.animateFloat(
-        initialValue = 1f, targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            keyframes { durationMillis = 5000; 1f at 0; 1f at 4600; 0.1f at 4750; 1f at 4900 },
-        ),
-        label = "blink",
     )
     val dash = PathEffect.dashPathEffect(floatArrayOf(2f, 14f))
 
@@ -275,25 +267,9 @@ fun CompassBackdrop(
                 drawPath(Path().apply { moveTo(c.x, c.y + r * 0.74f); lineTo(c.x + half, c.y); lineTo(c.x - half, c.y); close() }, ink)
             }
 
-            // The hub is a little face.
-            val hub = r * 0.14f
-            drawCircle(page, hub, c)
-            drawCircle(ink.copy(alpha = ink.alpha * 2f), hub, c, style = Stroke(2.dp.toPx()))
-            val ex = hub * 0.38f
-            val ey = c.y - hub * 0.18f
-            val eyeW = hub * 0.17f
-            val eyeH = hub * 0.24f * eyes
-            val face = ink.copy(alpha = (ink.alpha * 3.2f).coerceAtMost(0.7f))
-            drawOval(face, Offset(c.x - ex - eyeW, ey - eyeH), androidx.compose.ui.geometry.Size(eyeW * 2, eyeH * 2))
-            drawOval(face, Offset(c.x + ex - eyeW, ey - eyeH), androidx.compose.ui.geometry.Size(eyeW * 2, eyeH * 2))
-            drawArc(
-                face, startAngle = 20f, sweepAngle = 140f, useCenter = false,
-                topLeft = Offset(c.x - hub * 0.42f, c.y - hub * 0.05f),
-                size = androidx.compose.ui.geometry.Size(hub * 0.84f, hub * 0.62f),
-                style = Stroke(1.6.dp.toPx(), cap = StrokeCap.Round),
-            )
-            drawCircle(needle.copy(alpha = needle.alpha * 0.6f), hub * 0.15f, Offset(c.x - hub * 0.72f, c.y + hub * 0.28f))
-            drawCircle(needle.copy(alpha = needle.alpha * 0.6f), hub * 0.15f, Offset(c.x + hub * 0.72f, c.y + hub * 0.28f))
+            // Plain hub.
+            val hub = r * 0.07f
+            drawCircle(ink.copy(alpha = ink.alpha * 1.8f), hub, c)
         }
 
         // Two sparkles.

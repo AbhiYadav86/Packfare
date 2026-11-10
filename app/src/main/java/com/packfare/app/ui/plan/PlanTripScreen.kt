@@ -90,8 +90,9 @@ fun PlanTripScreen(vm: PlanTripViewModel, onBack: () -> Unit, onCreated: (Long) 
     when (vm.phase) {
         PlanPhase.SEARCH -> SearchPage(vm, onBack)
         PlanPhase.RESULTS -> {
-            BackHandler { vm.editSearch() }
-            ResultsPage(vm, onCreated)
+            val back = { if (vm.openedOnResults) onBack() else vm.editSearch() }
+            BackHandler { back() }
+            ResultsPage(vm, onCreated, onBack = back)
         }
     }
 }
