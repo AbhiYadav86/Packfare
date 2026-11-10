@@ -154,6 +154,7 @@ fun TripDetailScreen(
                     onEditPlan = { editingPlan = true },
                     onAddCash = { addingCash = true },
                     onDeleteCash = vm::deleteCash,
+                    onToggleBooking = vm::toggleBooking,
                 )
                 TripTab.EXPENSES -> ExpensesTab(
                     state = state,

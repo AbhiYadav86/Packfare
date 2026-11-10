@@ -26,6 +26,8 @@ data class TripEntity(
     val kind: String = KIND_TRIP,
     /** Company or organiser to claim from. Used on the reimbursement PDF. */
     val company: String? = null,
+    /** Checklist of things to book, see [com.packfare.app.domain.BookingItem]. Null = none. */
+    val bookings: String? = null,
 ) {
     val isEvent: Boolean get() = kind == KIND_EVENT
 

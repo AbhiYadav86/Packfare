@@ -136,3 +136,19 @@ object Activities {
     /** Plain-text version for sharing: "• Jeep safari  ≈₹600–1,200". */
     fun line(a: ActivityIdea) = "• ${a.name}  ${a.costLabel}"
 }
+
+/** Which suggested activities are ticked, and what that adds to the trip total. */
+object ActivityPicks {
+    fun key(day: Int, idea: ActivityIdea) = "$day|${idea.name}"
+
+    /** Low-end cost of the ideas still ticked (not in [skipped]), per person. */
+    fun pickedPaise(days: List<ItineraryDay>, skipped: Set<String>): Long =
+        days.sumOf { d -> d.activities.filter { key(d.day, it) !in skipped }.sumOf { it.planPaise } }
+
+    /**
+     * The trip already carries a daily activities allowance. Ticked ideas only add to the total
+     * when together they cost more than that allowance; unticking never drops below it.
+     */
+    fun extraPaise(days: List<ItineraryDay>, skipped: Set<String>, allowancePaise: Long): Long =
+        (pickedPaise(days, skipped) - allowancePaise).coerceAtLeast(0L)
+}

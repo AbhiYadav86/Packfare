@@ -1,6 +1,7 @@
 package com.packfare.app.ui.plan
 
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
@@ -8,6 +9,9 @@ import androidx.lifecycle.viewModelScope
 import com.packfare.app.data.LegEntity
 import com.packfare.app.data.TripEntity
 import com.packfare.app.data.TripRepository
+import com.packfare.app.domain.ActivityIdea
+import com.packfare.app.domain.ActivityPicks
+import com.packfare.app.domain.BookingItem
 import com.packfare.app.domain.BudgetPlanner
 import com.packfare.app.domain.BudgetSuggestion
 import com.packfare.app.domain.CostTier
@@ -274,7 +278,8 @@ class PlanTripViewModel(
 
     private val planStops: List<PlanStop> get() = stops.map { PlanStop(it.destination, it.nights, it.costs) }
 
-    val suggestion: BudgetSuggestion?
+    /** The estimate before any ticked activities are added on top. */
+    private val baseSuggestion: BudgetSuggestion?
         get() {
             if (stops.isEmpty()) return null
             val o = origin
@@ -292,7 +297,57 @@ class PlanTripViewModel(
         }
 
     val itinerary: List<ItineraryDay>
-        get() = suggestion?.let { ItineraryBuilder.days(it, startDate, highlights) }.orEmpty()
+        get() = baseSuggestion?.let { ItineraryBuilder.days(it, startDate, highlights) }.orEmpty()
+
+    /** The estimate shown everywhere: base plus whatever ticked activities cost beyond the allowance. */
+    val suggestion: BudgetSuggestion?
+        get() {
+            val base = baseSuggestion ?: return null
+            val extra = ActivityPicks.extraPaise(itinerary, skippedIdeas, base.activitiesPaise)
+            return if (extra > 0) base.copy(extrasPaise = extra) else base
+        }
+
+    // ---- Ticked activities (all ticked by default) ----
+    var skippedIdeas by mutableStateOf<Set<String>>(emptySet())
+        private set
+
+    fun toggleIdea(day: Int, idea: ActivityIdea) {
+        val k = ActivityPicks.key(day, idea)
+        skippedIdeas = if (k in skippedIdeas) skippedIdeas - k else skippedIdeas + k
+    }
+
+    // ---- Booking ticks, remembered on the phone until the trip is created ----
+    private var tickRev by mutableIntStateOf(0)
+
+    private val planSig: String
+        get() = stops.joinToString(";") { "${it.destination.name}~${it.nights}" } + "@" + startDate
+
+    val ticked: Set<String>
+        get() {
+            tickRev // read so Compose updates when it changes
+            val lines = prefs.bookedPlan.lines()
+            return if (lines.firstOrNull() == planSig) lines.getOrNull(1).orEmpty().split("|").filter { it.isNotBlank() }.toSet() else emptySet()
+        }
+
+    fun toggleBooked(key: String) {
+        val now = ticked.toMutableSet()
+        if (!now.add(key)) now.remove(key)
+        prefs.bookedPlan = planSig + "\n" + now.joinToString("|")
+        tickRev++
+    }
+
+    /** The journeys and stays to book, with their ticks. Same keys on the Book tab and in the saved trip. */
+    fun bookingItems(): List<BookingItem> {
+        val plan = suggestion ?: return emptyList()
+        val done = ticked
+        val legs = plan.legs.mapIndexed { i, l ->
+            BookingItem("leg$i", "${l.from.name} → ${l.to.name} · ${l.option.mode.label}", "leg$i" in done)
+        }
+        val stays = stops.mapIndexed { i, st ->
+            BookingItem("stay$i", "Stay in ${st.destination.name} · ${st.nights} night${if (st.nights == 1) "" else "s"}", "stay$i" in done)
+        }
+        return legs + stays
+    }
 
     val budgetPaise: Long
         get() = budgetOverride?.let { Money.parse(it) } ?: suggestion?.groupTotalPaise?.let { roundUpTo100(it) } ?: 0L
@@ -532,10 +587,12 @@ class PlanTripViewModel(
                 startEpochDay = start.toEpochDay(),
                 plannedDays = plan.days,
                 style = style.name,
+                bookings = bookingItems().takeIf { it.isNotEmpty() }?.let { BookingItem.encode(it) },
             )
             val id = repo.createPlannedTrip(trip, myName, legs)
             created = true
             prefs.draft = null
+            prefs.bookedPlan = ""
             if (prefs.travellerName.isNullOrBlank() && myName.isNotBlank()) prefs.travellerName = myName
             onCreated(id)
         }

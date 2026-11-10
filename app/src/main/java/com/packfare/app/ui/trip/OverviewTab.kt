@@ -45,12 +45,30 @@ internal fun OverviewTab(
     onEditPlan: () -> Unit,
     onAddCash: () -> Unit,
     onDeleteCash: (Long) -> Unit,
+    onToggleBooking: (String) -> Unit,
 ) {
     LazyColumn(
         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 160.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item { RunwayCard(state.runway, state.members.size, onEditPlan) }
+
+        val bookings = com.packfare.app.domain.BookingItem.decode(state.trip?.bookings)
+        if (bookings.isNotEmpty()) {
+            item {
+                Card(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(16.dp)) {
+                        Text("🎫 Bookings · ${bookings.count { it.done }} of ${bookings.size} done", style = MaterialTheme.typography.titleSmall)
+                        bookings.forEach { b ->
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                androidx.compose.material3.Checkbox(checked = b.done, onCheckedChange = { onToggleBooking(b.key) })
+                                Text(b.label, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                            }
+                        }
+                    }
+                }
+            }
+        }
 
         if (state.legs.isNotEmpty()) {
             item {

@@ -93,7 +93,6 @@ internal fun ResultsPage(vm: PlanTripViewModel, onCreated: (Long) -> Unit) {
     var pickingLeg by remember { mutableStateOf<LegEstimate?>(null) }
     var editingTravellers by remember { mutableStateOf(false) }
     var showBreakdown by remember { mutableStateOf(false) }
-    var booked by rememberSaveable { mutableStateOf("") }
     val s = vm.suggestion
     val search = vm.currentSearch()
 
@@ -140,15 +139,7 @@ internal fun ResultsPage(vm: PlanTripViewModel, onCreated: (Long) -> Unit) {
                 ResultTab.SETUP -> { StaysTab(vm, s); TripDetailsFields(vm) }
                 ResultTab.ITINERARY -> ItineraryTab(vm, onPickLeg = { pickingLeg = it })
                 ResultTab.TRAVEL -> GettingThereTab(vm, s, onPickLeg = { pickingLeg = it })
-                ResultTab.BOOK -> BookTab(
-                    vm, s,
-                    booked = booked.split("|").filter { it.isNotBlank() }.toSet(),
-                    onToggle = { key ->
-                        val set = booked.split("|").filter { it.isNotBlank() }.toMutableSet()
-                        if (!set.add(key)) set.remove(key)
-                        booked = set.joinToString("|")
-                    },
-                )
+                ResultTab.BOOK -> BookTab(vm, s)
             }
         }
     }
@@ -221,7 +212,14 @@ private fun BreakdownSheet(vm: PlanTripViewModel, s: BudgetSuggestion, onDismiss
 private fun ItineraryTab(vm: PlanTripViewModel, onPickLeg: (LegEstimate) -> Unit) {
     PlanMap(vm)
     StopsSection(vm, onPickLeg)
-    ItinerarySection(vm.itinerary, onLoadIdeas = { vm.loadHighlights(allowNetwork = true) })
+    ItinerarySection(
+        vm.itinerary,
+        skipped = vm.skippedIdeas,
+        onToggle = vm::toggleIdea,
+        allowancePaise = vm.suggestion?.activitiesPaise ?: 0L,
+        extraPaise = vm.suggestion?.extrasPaise ?: 0L,
+        onLoadIdeas = { vm.loadHighlights(allowNetwork = true) },
+    )
     SuggestAgainCard(vm)
 }
 
@@ -378,7 +376,14 @@ private fun LegLine(leg: LegEstimate?, onPick: (LegEstimate) -> Unit) {
 }
 
 @Composable
-private fun ItinerarySection(days: List<ItineraryDay>, onLoadIdeas: () -> Unit) {
+private fun ItinerarySection(
+    days: List<ItineraryDay>,
+    skipped: Set<String>,
+    onToggle: (Int, com.packfare.app.domain.ActivityIdea) -> Unit,
+    allowancePaise: Long,
+    extraPaise: Long,
+    onLoadIdeas: () -> Unit,
+) {
     if (days.isEmpty()) return
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -397,8 +402,14 @@ private fun ItinerarySection(days: List<ItineraryDay>, onLoadIdeas: () -> Unit) 
                             )
                         }
                         d.activities.forEach { a ->
-                            Row(Modifier.fillMaxWidth()) {
-                                Text("• ${a.name}", Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+                            val on = com.packfare.app.domain.ActivityPicks.key(d.day, a) !in skipped
+                            Row(
+                                Modifier.fillMaxWidth().clickable { onToggle(d.day, a) },
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Checkbox(checked = on, onCheckedChange = { onToggle(d.day, a) })
+                                Text(a.name, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall,
+                                    color = if (on) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant)
                                 Text(
                                     a.costLabel,
                                     style = MaterialTheme.typography.bodySmall,
@@ -411,7 +422,7 @@ private fun ItinerarySection(days: List<ItineraryDay>, onLoadIdeas: () -> Unit) 
                                     a.note,
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(start = 12.dp, bottom = 2.dp),
+                                    modifier = Modifier.padding(start = 48.dp, bottom = 2.dp),
                                 )
                             }
                         }
@@ -425,11 +436,13 @@ private fun ItinerarySection(days: List<ItineraryDay>, onLoadIdeas: () -> Unit) 
                     }
                 }
             }
-            val ideasTotal = days.sumOf { it.activitiesPaise }
-            if (ideasTotal > 0) {
+            val ideasTotal = com.packfare.app.domain.ActivityPicks.pickedPaise(days, skipped)
+            if (days.any { it.activities.isNotEmpty() }) {
                 HorizontalDivider()
                 Text(
-                    "Suggested activities in all ≈ ${Money.format(ideasTotal)} per person (low end of each price).",
+                    "Ticked activities ≈ ${Money.format(ideasTotal)} per person (low end of each price). " +
+                        if (extraPaise > 0) "Your trip allowance is ${Money.format(allowancePaise)}, so ${Money.format(extraPaise)} has been added to the total."
+                        else "That fits inside the ${Money.format(allowancePaise)} already in your total.",
                     style = MaterialTheme.typography.bodySmall,
                     fontWeight = FontWeight.Medium,
                 )
@@ -698,8 +711,10 @@ private fun TripDetailsFields(vm: PlanTripViewModel) {
 // =====================================================================
 
 @Composable
-private fun BookTab(vm: PlanTripViewModel, s: BudgetSuggestion?, booked: Set<String>, onToggle: (String) -> Unit) {
+private fun BookTab(vm: PlanTripViewModel, s: BudgetSuggestion?) {
     val uri = LocalUriHandler.current
+    val booked = vm.ticked
+    val onToggle = vm::toggleBooked
     if (s == null || vm.stops.isEmpty()) {
         Text("Add a stop to see what to book.", color = MaterialTheme.colorScheme.onSurfaceVariant)
         return
@@ -811,6 +826,7 @@ private fun SuggestionCard(s: BudgetSuggestion) {
             WhiteLine("🛏️ Stay", s.stayPaise)
             WhiteLine("🍛 Food", s.foodPaise)
             WhiteLine("🎟️ Sights & activities", s.activitiesPaise)
+            if (s.extrasPaise > 0) WhiteLine("🎯 Extra activities you ticked", s.extrasPaise)
             WhiteLine("🧯 Buffer (SIM, laundry, surprises)", s.bufferPaise)
             if (s.overnightSavingsPaise > 0) WhiteLine("🌙 Saved by overnight journeys", -s.overnightSavingsPaise)
             if (s.people > 1) {

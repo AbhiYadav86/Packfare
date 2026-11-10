@@ -12,7 +12,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         TripEntity::class, MemberEntity::class, LegEntity::class, ExpenseEntity::class,
         ExpenseShareEntity::class, CashTopUpEntity::class, DocumentEntity::class, PlaceCacheEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -26,7 +26,7 @@ abstract class AppDatabase : RoomDatabase() {
          */
         fun create(context: Context): AppDatabase =
             Room.databaseBuilder(context, AppDatabase::class.java, "packfare.db")
-                .addMigrations(MIGRATION_1_2)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                 .build()
 
         /** v0.11: trips can be flagged as events and carry a company for reimbursement claims. */
@@ -34,6 +34,13 @@ abstract class AppDatabase : RoomDatabase() {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE trips ADD COLUMN kind TEXT NOT NULL DEFAULT 'TRIP'")
                 db.execSQL("ALTER TABLE trips ADD COLUMN company TEXT")
+            }
+        }
+
+        /** v0.13: a booking checklist travels with the trip. */
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE trips ADD COLUMN bookings TEXT")
             }
         }
     }

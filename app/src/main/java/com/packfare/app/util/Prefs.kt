@@ -44,4 +44,9 @@ class Prefs(context: Context) {
     var draft: TripSearch?
         get() = sp.getString("draft", null)?.let { TripSearch.decode(it) }
         set(value) = sp.edit().putString("draft", value?.let { TripSearch.encode(it) }).apply()
+
+    /** Booking ticks for the plan being built: first line identifies the plan, second holds ticked keys. */
+    var bookedPlan: String
+        get() = sp.getString("booked_plan", "") ?: ""
+        set(value) = sp.edit().putString("booked_plan", value).apply()
 }

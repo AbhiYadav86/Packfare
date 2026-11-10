@@ -250,6 +250,13 @@ class TripDetailViewModel(
 
     // ---- Trip settings ----
 
+    fun toggleBooking(key: String) {
+        val trip = state.value.trip ?: return
+        val items = com.packfare.app.domain.BookingItem.decode(trip.bookings)
+        val updated = com.packfare.app.domain.BookingItem.toggle(items, key)
+        viewModelScope.launch { repository.updateTrip(trip.copy(bookings = com.packfare.app.domain.BookingItem.encode(updated))) }
+    }
+
     fun setCompany(company: String) {
         val trip = state.value.trip ?: return
         viewModelScope.launch { repository.updateTrip(trip.copy(company = company.ifBlank { null })) }

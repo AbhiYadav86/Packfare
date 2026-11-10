@@ -4,6 +4,12 @@ An offline-first Android app for backpackers in India (Indian and international)
 suggested budget, tracks daily spending and cash, maps the route with fare estimates, splits costs
 with travel buddies, scans receipts and keeps travel documents in an encrypted vault.
 
+## v0.14 – Saved booking ticks and tickable activities
+
+- Booking ticks on the Book tab are remembered, and the checklist is saved with the trip (Trips > open trip > Today shows "Bookings" with tickboxes). Database version 3 with a migration.
+- Itinerary activities each have a tickbox. Ticked activities only raise the trip total when together they cost more than the daily activities allowance already included; the breakdown shows "Extra activities you ticked".
+- Events, bill scanning and the reimbursement PDF are unchanged.
+
 ## v0.13 – One trip spine, four tabs, a friendlier compass
 
 - **Four tabs:** Home, Discover, Trips, Wallet. Home has "Where to next?", your unfinished plan, and quick starts (Scan a bill, New event, Compare fares, How long?). Wallet holds Bills (scan, events, reimbursement) and Documents (the vault).

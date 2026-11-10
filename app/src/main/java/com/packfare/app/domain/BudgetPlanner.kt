@@ -38,6 +38,8 @@ data class BudgetSuggestion(
     val legs: List<LegEstimate>,
     val people: Int,
     val style: TravelStyle,
+    /** Activities you picked in the itinerary beyond the day-to-day allowance, per person. */
+    val extrasPaise: Long = 0,
 ) {
     val days: Int get() = stops.sumOf { it.stop.nights }.coerceAtLeast(1)
     val stayPaise: Long get() = stops.sumOf { it.daily.stayPaise * it.stop.nights }
@@ -57,10 +59,10 @@ data class BudgetSuggestion(
     val overnightSavingsPaise: Long get() = legs.sumOf { it.savedStayPaise }
 
     /** SIM, laundry, tips, the odd emergency: a small cushion on top. */
-    val bufferPaise: Long get() = ((stayPaise + foodPaise + localPaise + activitiesPaise + intercityPaise) * 0.08).toLong()
+    val bufferPaise: Long get() = ((stayPaise + foodPaise + localPaise + activitiesPaise + extrasPaise + intercityPaise) * 0.08).toLong()
 
     val perPersonPaise: Long
-        get() = stayPaise + foodPaise + localPaise + activitiesPaise + intercityPaise + bufferPaise - overnightSavingsPaise
+        get() = stayPaise + foodPaise + localPaise + activitiesPaise + extrasPaise + intercityPaise + bufferPaise - overnightSavingsPaise
 
     val groupTotalPaise: Long get() = perPersonPaise * people
     val perPersonPerDayPaise: Long get() = perPersonPaise / days
