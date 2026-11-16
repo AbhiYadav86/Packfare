@@ -97,7 +97,7 @@ object WikivoyageParser {
      * cheapest rupee amount in the price text and [ActivityIdea.highPaise] the dearest ("₹50 Indians,
      * ₹500 foreigners" -> 50 to 500). Listings without a price still come through, with no price.
      */
-    fun activities(wikitext: String, max: Int = 14): List<ActivityIdea> =
+    fun activities(wikitext: String, max: Int = 24): List<ActivityIdea> =
         listingTemplates(wikitext).mapNotNull { t ->
             val f = fields(t.body)
             val type = (if (t.kind == "listing") f["type"] else t.kind)?.lowercase()
@@ -112,8 +112,17 @@ object WikivoyageParser {
                 else -> amounts.min()
             }
             val high = amounts.maxOrNull()?.takeIf { low != null && it > low }
-            ActivityIdea(name, low, high, "", IdeaSource.GUIDE)
+            ActivityIdea(name, low, high, guideNote(f), IdeaSource.GUIDE)
         }.distinctBy { it.name }.take(max)
+
+    /** A short description from the listing ("content"/"description") plus opening hours, for the activity row. */
+    internal fun guideNote(f: Map<String, String>): String {
+        fun plain(raw: String) = cleanName(raw).replace(Regex("""\{\{[^}]*}}"""), "").replace(Regex("\\s+"), " ").trim()
+        val text = plain(f["content"] ?: f["description"] ?: "")
+        val short = if (text.length <= 150) text else text.take(150).substringBeforeLast(' ') + "…"
+        val hours = plain(f["hours"].orEmpty()).take(60)
+        return listOf(short, if (hours.isNotBlank()) "Hours: $hours" else "").filter { it.isNotBlank() }.joinToString(" ")
+    }
 
     /** Every rupee amount in a price string, in paise ("₹50-100" gives 50 and 100). */
     internal fun rupeeAmounts(text: String): List<Long> {

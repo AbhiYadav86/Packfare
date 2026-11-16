@@ -241,64 +241,49 @@ fun ExploreScreen(
                     }
                 }
 
-                item { Header("Map") }
+                item { Header("Browse by price") }
                 item {
-                    // Which price levels to show. Empty = all.
-                    var tiers by rememberSaveable { mutableStateOf(setOf<String>()) }
-                    val pins = remember(tiers) {
-                        Destinations.all
-                            .filter { tiers.isEmpty() || it.tier.name in tiers }
-                            .map { d ->
-                                MapPin(
-                                    id = d.wikivoyage,
-                                    lat = d.lat,
-                                    lon = d.lon,
-                                    color = when (d.tier) {
-                                        CostTier.LOW -> PinColors.low
-                                        CostTier.MID -> PinColors.mid
-                                        CostTier.HIGH -> PinColors.high
-                                    },
-                                    label = d.name,
-                                    radius = if (d.hub) 6f else 3.5f,
-                                )
-                            }
-                    }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 8.dp)) {
+                    // Which price level to browse. null = all.
+                    var tier by rememberSaveable { mutableStateOf<String?>(null) }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 4.dp)) {
                         listOf(
-                            Triple(CostTier.LOW, "🟢 Cheap", "cheap"),
-                            Triple(CostTier.MID, "🟠 Mid", "mid"),
-                            Triple(CostTier.HIGH, "🔴 Pricey", "pricey"),
-                        ).forEach { (tier, label, _) ->
+                            CostTier.LOW to "🟢 Cheap",
+                            CostTier.MID to "🟠 Mid",
+                            CostTier.HIGH to "🔴 Pricey",
+                        ).forEach { (t, label) ->
                             androidx.compose.material3.FilterChip(
-                                selected = tier.name in tiers,
-                                onClick = { tiers = if (tier.name in tiers) tiers - tier.name else tiers + tier.name },
+                                selected = tier == t.name,
+                                onClick = { tier = if (tier == t.name) null else t.name },
                                 label = { Text(label) },
                             )
                         }
                     }
+                    val picks = remember(tier, vm.style) {
+                        Destinations.all
+                            .filter { it.hub && (tier == null || it.tier.name == tier) }
+                            .sortedBy { it.baseline.forStyle(vm.style).totalPaise }
+                            .take(12)
+                    }
                     Text(
-                        (if (tiers.isEmpty()) "All ${pins.size} places" else "${pins.size} places") + " · tap a dot to open it. Tap a level to show only those.",
+                        (if (tier == null) "Cheapest popular places first" else "Popular places at this level, cheapest first") +
+                            " · daily cost for your travel style.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 4.dp),
                     )
-                    Card(Modifier.fillMaxWidth().padding(top = 8.dp)) {
-                        PackfareMap(
-                            pins = pins,
-                            myLocation = vm.myLocation,
-                            focus = vm.myLocation?.let { me -> listOf(me) + vm.nearby.take(3).map { it.first.lat to it.first.lon } },
-                            onPinClick = onOpenPlace,
-                            modifier = Modifier.fillMaxWidth().height(300.dp),
-                        )
+                    Column(Modifier.padding(top = 4.dp)) {
+                        picks.forEach { d ->
+                            DestinationRow(d, vm.home, vm.style, vm.travelPref, onClick = { onOpenPlace(d.wikivoyage) })
+                        }
                     }
-                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 12.dp)) {
                         FilledTonalButton(onClick = { vm.startLocating(); requestLocation() }, enabled = !vm.locating) {
                             Text(if (vm.locating) "Finding you…" else "📍 Near me")
                         }
                         Spacer(Modifier.width(12.dp))
                         val closest = vm.nearby.firstOrNull()
                         Text(
-                            if (closest != null) "Closest: ${closest.first.name}, ${closest.second} km" else "Shows where you are and the nearest places",
+                            if (closest != null) "Closest: ${closest.first.name}, ${closest.second} km" else "Lists the places closest to where you are",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -353,7 +338,7 @@ fun ExploreScreen(
                     }
                 }
                 item {
-                    Header(if (vm.searching) "Searching Wikivoyage…" else "On Wikivoyage")
+                    Header(if (vm.searching) "Searching…" else "More places")
                 }
                 if (vm.searching) {
                     item { CircularProgressIndicator(Modifier.padding(8.dp).size(24.dp), strokeWidth = 3.dp) }

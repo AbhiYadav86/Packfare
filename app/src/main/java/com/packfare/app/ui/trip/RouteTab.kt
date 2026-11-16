@@ -2,6 +2,13 @@
 
 package com.packfare.app.ui.trip
 
+import androidx.compose.foundation.background
+import androidx.compose.ui.draw.clip
+import com.packfare.app.domain.HotelBudget
+import com.packfare.app.domain.Journey
+import com.packfare.app.domain.LegOption
+import com.packfare.app.domain.LegOptions
+import com.packfare.app.fares.BookingLinks
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -55,7 +62,13 @@ private val legDate = DateTimeFormatter.ofPattern("EEE, d MMM")
 
 /** Feature 5 (route legs) + 6 (overnight saver). */
 @Composable
-internal fun RouteTab(state: TripDetailState, onEditLeg: (LegEntity) -> Unit, onFindFares: (LegEntity) -> Unit) {
+internal fun RouteTab(
+    state: TripDetailState,
+    foreignVisitor: Boolean,
+    onEditLeg: (LegEntity) -> Unit,
+    onFindFares: (LegEntity) -> Unit,
+    onChoose: (LegEntity, LegOption) -> Unit,
+) {
     if (state.legs.isEmpty()) {
         CenteredMessage(
             "🗺️",
@@ -92,10 +105,15 @@ internal fun RouteTab(state: TripDetailState, onEditLeg: (LegEntity) -> Unit, on
                 style = MaterialTheme.typography.titleSmall,
             )
         }
-        items(state.legs, key = { it.leg.id }) { row -> LegCard(row, onClick = { onEditLeg(row.leg) }, onFindFares = { onFindFares(row.leg) }) }
+        items(state.legs, key = { it.leg.id }) { row ->
+            LegCard(
+                row, people = state.members.size.coerceAtLeast(1), style = state.style, foreignVisitor = foreignVisitor,
+                onEdit = { onEditLeg(row.leg) }, onFindFares = { onFindFares(row.leg) }, onChoose = { onChoose(row.leg, it) },
+            )
+        }
         item {
             Text(
-                "Fares are estimates (≈) from distance and typical Indian prices. Tap a leg to enter what you actually paid.",
+                "Fares are estimates (≈) from distance and typical Indian prices; the booking sites show today's price. Tap \"Use this\" to put an option in your plan, or Edit to enter what you actually paid.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -104,29 +122,96 @@ internal fun RouteTab(state: TripDetailState, onEditLeg: (LegEntity) -> Unit, on
 }
 
 @Composable
-private fun LegCard(row: LegRow, onClick: () -> Unit, onFindFares: () -> Unit) {
+private fun LegCard(
+    row: LegRow,
+    people: Int,
+    style: com.packfare.app.domain.TravelStyle,
+    foreignVisitor: Boolean,
+    onEdit: () -> Unit,
+    onFindFares: () -> Unit,
+    onChoose: (LegOption) -> Unit,
+) {
     val leg = row.leg
-    val mode = TransportMode.fromName(leg.mode)
-    Card(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    val uri = androidx.compose.ui.platform.LocalUriHandler.current
+    val from = Destinations.find(leg.fromName)
+    val to = Destinations.find(leg.toName)
+    val options = remember(leg.fromName, leg.toName, people) {
+        if (from != null && to != null) LegOptions.forLeg(from, to, people) else emptyMap()
+    }
+    val date = leg.dateEpochDay?.let { LocalDate.ofEpochDay(it) } ?: LocalDate.now().plusDays(7)
+    val current = Journey.of(TransportMode.fromName(leg.mode))
+    var journey by remember(leg.id) { mutableStateOf(current.takeIf { it in options } ?: options.keys.firstOrNull() ?: current) }
+    val defaultCap = LegOptions.defaultCapPaise(leg.farePaise, options)
+    var capText by remember(leg.id, defaultCap) { mutableStateOf((defaultCap / 100).toString()) }
+    val cap = (Money.parse(capText) ?: defaultCap).coerceAtLeast(0L)
+
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(mode.emoji, style = MaterialTheme.typography.headlineSmall)
-                androidx.compose.foundation.layout.Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
-                    Text("${leg.fromName} → ${leg.toName}", style = MaterialTheme.typography.titleMedium, maxLines = 1)
+                    Text("${leg.fromName} → ${leg.toName}", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                     val bits = listOfNotNull(
-                        leg.dateEpochDay?.let { LocalDate.ofEpochDay(it).format(legDate) },
-                        mode.label,
-                        leg.hours?.let { formatHours(it) },
+                        leg.dateEpochDay?.let { date.format(legDate) },
+                        "$people ${if (people == 1) "traveller" else "travellers"}",
+                        if (leg.farePaise > 0) "in plan: ${TransportMode.fromName(leg.mode).emoji} ≈ ${Money.format(leg.farePaise)} each" else null,
                     )
                     Text(bits.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                Text(
-                    if (leg.farePaise > 0) "≈ ${Money.format(leg.farePaise)}" else "—",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                )
+                TextButton(onClick = onEdit) { Text("Edit") }
             }
+
+            if (options.isEmpty()) {
+                Text(
+                    "No estimates for this hop (one of the places isn't in Packfare's list). Tap Edit to enter the fare yourself.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else {
+                OutlinedTextField(
+                    value = capText, onValueChange = { capText = it }, singleLine = true,
+                    label = { Text("My budget per person for this hop") }, prefix = { Text("₹ ") },
+                    supportingText = { Text("Change it to see which options fit.") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Journey.entries.filter { it in options }.forEach { j ->
+                        val fitCount = options.getValue(j).count { HotelBudget.fits(it.perPersonPaise, cap) }
+                        FilterChip(
+                            selected = journey == j, onClick = { journey = j },
+                            label = { Text("${j.emoji} ${j.label}" + if (fitCount > 0) " ✓" else "") },
+                        )
+                    }
+                }
+                val list = options[journey].orEmpty()
+                val (fit, over) = list.partition { HotelBudget.fits(it.perPersonPaise, cap) }
+                Text(
+                    "${fit.size} of ${list.size} ${journey.label.lowercase()} options fit ${Money.format(cap)} each",
+                    style = MaterialTheme.typography.titleSmall,
+                )
+                (fit + over).forEach { o ->
+                    val fits = o in fit
+                    val chosen = TransportMode.fromName(leg.mode) == o.mode && leg.farePaise == o.perPersonPaise
+                    OptionRow(o, fits, chosen, people, over = (o.perPersonPaise - cap).takeIf { !fits }, onUse = { onChoose(o) })
+                }
+                Text("Book or check today's price", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 4.dp))
+                val links: List<Pair<String, String>> = when (journey) {
+                    Journey.FLIGHT -> options[Journey.FLIGHT].orEmpty().firstOrNull { it.fromAirport != null }
+                        ?.let { BookingLinks.flightLinks(it.fromAirport!!, it.toAirport!!, date) }.orEmpty()
+                    Journey.TAXI -> BookingLinks.taxiLinks(from!!, to!!, date)
+                    Journey.TRAIN -> BookingLinks.groundLinks(TransportMode.TRAIN_AC, from!!, to!!, date, foreignVisitor)
+                    Journey.BUS -> BookingLinks.groundLinks(TransportMode.BUS_AC_SLEEPER, from!!, to!!, date, foreignVisitor)
+                }
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    links.forEachIndexed { i, (label, url) ->
+                        if (i == 0) androidx.compose.material3.Button(onClick = { uri.openUri(url) }, shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp)) { Text(label) }
+                        else androidx.compose.material3.OutlinedButton(onClick = { uri.openUri(url) }, shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp)) { Text(label) }
+                    }
+                }
+                if (journey == Journey.TRAIN && foreignVisitor) {
+                    Text("12Go sells Indian train tickets as a PDF with no IRCTC account or Indian phone number.", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+
             if (leg.overnight) {
                 Text("🌙 Overnight · saves ≈ ${Money.format(row.savedStayPaise)} on stays", style = MaterialTheme.typography.bodySmall)
             }
@@ -142,8 +227,37 @@ private fun LegCard(row: LegRow, onClick: () -> Unit, onFindFares: () -> Unit) {
                 Text(notes.joinToString(" · "), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
             }
             TextButton(onClick = onFindFares, contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)) {
-                Text("🔎 Find the cheapest fare")
+                Text("🔎 Live fares across sites")
             }
+        }
+    }
+}
+
+@Composable
+private fun OptionRow(o: LegOption, fits: Boolean, chosen: Boolean, people: Int, over: Long?, onUse: () -> Unit) {
+    val bg = if (fits) MaterialTheme.colorScheme.primaryContainer else androidx.compose.ui.graphics.Color.Transparent
+    Row(
+        Modifier.fillMaxWidth().clip(androidx.compose.foundation.shape.RoundedCornerShape(10.dp)).background(bg).padding(horizontal = 10.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(o.title, style = MaterialTheme.typography.bodyMedium, fontWeight = if (fits) FontWeight.SemiBold else FontWeight.Normal)
+            Text(
+                listOfNotNull(formatHours(o.hours), if (o.overnight) "🌙 overnight" else null,
+                    if (people > 1) "group ≈ ${Money.format(o.groupPaise)}" else null).joinToString(" · "),
+                style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            o.detail?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+            Text(
+                if (fits) "✓ Fits your budget" else "${Money.format(over ?: 0L)} over",
+                style = MaterialTheme.typography.labelSmall,
+                color = if (fits) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Column(horizontalAlignment = Alignment.End) {
+            Text("≈ ${Money.format(o.perPersonPaise)}", fontWeight = FontWeight.SemiBold)
+            if (chosen) Text("In your plan ✓", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+            else TextButton(onClick = onUse, contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp)) { Text("Use this") }
         }
     }
 }

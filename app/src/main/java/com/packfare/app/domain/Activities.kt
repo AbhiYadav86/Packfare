@@ -94,9 +94,9 @@ object Activities {
             add(typical("Monastery, temple or viewpoint visits", 0, 200))
         }
         if (Theme.HERITAGE in themes) {
-            add(typical("Fort or monument entry", 50, 600, "Foreign visitors usually pay several times more."))
+            add(typical("Fort or monument entry", 50, 1_000))
             add(typical("Guided heritage walk", 300, 1_000))
-            add(typical("Museum or palace visit", 50, 500))
+            add(typical("Museum or palace visit", 50, 800))
         }
         if (Theme.SPIRITUAL in themes) {
             add(typical("Temple, ghat or gurdwara visits", 0, 100, "Often free; shoes and head covering rules apply."))
@@ -169,8 +169,8 @@ object ActivityEstimator {
         Rule(listOf("trek", "hike", "hiking"), 300, 1_500),
         Rule(listOf("boat", "cruise", "ferry ride", "shikara"), 200, 800),
         Rule(listOf("light and sound", "sound and light", "show"), 100, 500),
-        Rule(listOf("museum", "gallery", "haveli"), 20, 300),
-        Rule(listOf("fort", "palace", "monument", "tomb", "mahal", "citadel", "qila"), 50, 600),
+        Rule(listOf("museum", "gallery", "haveli"), 20, 500),
+        Rule(listOf("fort", "palace", "monument", "tomb", "mahal", "citadel", "qila"), 50, 1_000),
         Rule(listOf("cave", "caves"), 50, 300),
         Rule(listOf("zoo", "aquarium"), 50, 300),
         Rule(listOf("temple", "mandir", "gurdwara", "mosque", "masjid", "church", "monastery", "gompa", "ashram", "shrine", "dargah"), 0, 100),

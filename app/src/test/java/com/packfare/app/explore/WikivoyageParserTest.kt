@@ -86,3 +86,18 @@ class WikivoyageParserTest {
         assertEquals(1, WikivoyageParser.parse(text).sampleCount)
     }
 }
+
+class GuideNoteTest {
+    @org.junit.Test fun realPlacesCarryNotes() {
+        val wt = """
+==See==
+* {{see | name=[[Jaisalmer Fort]] | alt=Sonar Quila | url= | price=₹50 | hours=Sunrise-sunset
+| content=A living fort of golden sandstone, with Jain temples, havelis and shops inside its walls.}}
+* {{see | name=Government Museum | price=Free | content=Small museum of local history.}}
+"""
+        val a = WikivoyageParser.activities(wt)
+        org.junit.Assert.assertEquals("Jaisalmer Fort", a[0].name)
+        org.junit.Assert.assertTrue(a[0].note.contains("golden sandstone") && a[0].note.contains("Hours: Sunrise-sunset"))
+        org.junit.Assert.assertEquals("Small museum of local history.", a[1].note)
+    }
+}

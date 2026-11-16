@@ -34,6 +34,7 @@ import com.packfare.app.domain.TravelStyle
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.Instant
@@ -116,6 +117,21 @@ class TripDetailViewModel(
     }
 
 
+    /** The guide's See/Do listings per stop (real places with notes), loaded once the trip's stops are known. */
+    private val guide = kotlinx.coroutines.flow.MutableStateFlow<Map<String, List<com.packfare.app.domain.ActivityIdea>>>(emptyMap())
+
+    init {
+        viewModelScope.launch {
+            val trip = repository.trip(tripId).first { it != null } ?: return@launch
+            trip.destination.split("→").map { it.trim() }.filter { it.isNotBlank() }
+                .mapNotNull { Destinations.find(it) }.distinctBy { it.name }
+                .forEach { d ->
+                    val found = runCatching { explore.guideListings(d, allowNetwork = true) }.getOrDefault(emptyList())
+                    guide.value = guide.value + (d.name to found)
+                }
+        }
+    }
+
     val activities: StateFlow<List<ActivityEntity>> = repository.activities(tripId)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
@@ -134,10 +150,11 @@ class TripDetailViewModel(
         ) { trip, members, expenses, shares -> Core(trip, members, expenses, shares) },
         repository.legs(tripId),
         repository.cashTopUps(tripId),
-    ) { core, legs, topUps -> build(core, legs, topUps) }
+        guide,
+    ) { core, legs, topUps, guideIdeas -> build(core, legs, topUps, guideIdeas) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TripDetailState())
 
-    private fun build(core: Core, legs: List<LegEntity>, topUps: List<CashTopUpEntity>): TripDetailState {
+    private fun build(core: Core, legs: List<LegEntity>, topUps: List<CashTopUpEntity>, guideIdeas: Map<String, List<com.packfare.app.domain.ActivityIdea>>): TripDetailState {
         val (trip, members, expenses, shares) = core
         val byId = members.associateBy { it.id }
         val sharesByExpense = shares.groupBy { it.expenseId }
@@ -234,12 +251,12 @@ class TripDetailViewModel(
             cash = cash,
             cashTopUps = topUps,
             style = style,
-            plan = buildPlan(trip, legs, style),
+            plan = buildPlan(trip, legs, style, guideIdeas),
         )
     }
 
     /** Day-by-day suggestions from the trip's places and nights. Empty for events or trips without known places. */
-    private fun buildPlan(trip: TripEntity?, legs: List<LegEntity>, style: TravelStyle): List<ItineraryDay> {
+    private fun buildPlan(trip: TripEntity?, legs: List<LegEntity>, style: TravelStyle, guideIdeas: Map<String, List<com.packfare.app.domain.ActivityIdea>>): List<ItineraryDay> {
         if (trip == null || trip.isEvent) return emptyList()
         val places = trip.destination.split("→").map { it.trim() }.filter { it.isNotBlank() }
             .mapNotNull { Destinations.find(it) }
@@ -252,7 +269,7 @@ class TripDetailViewModel(
             PlanStop(d, (fromLegs ?: even).coerceAtLeast(1))
         }
         val suggestion = BudgetPlanner.suggest(stops, style, 1)
-        val ideas = places.associate { it.name to Activities.ideasFor(it, emptyList()) }
+        val ideas = places.associate { it.name to Activities.ideasFor(it, guideIdeas[it.name].orEmpty(), max = 16) }
         return ItineraryBuilder.days(suggestion, trip.startEpochDay?.let { LocalDate.ofEpochDay(it) }, ideas)
     }
 

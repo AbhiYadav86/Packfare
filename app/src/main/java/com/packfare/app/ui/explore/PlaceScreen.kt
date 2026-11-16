@@ -86,7 +86,7 @@ fun PlaceScreen(
                 },
                 actions = {
                     IconButton(onClick = { vm.load(force = true) }, enabled = !vm.loading) {
-                        Icon(Icons.Filled.Refresh, contentDescription = "Refresh from Wikivoyage")
+                        Icon(Icons.Filled.Refresh, contentDescription = "Refresh")
                     }
                 },
             )
@@ -99,7 +99,7 @@ fun PlaceScreen(
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     CircularProgressIndicator()
                     Spacer(Modifier.height(12.dp))
-                    Text("Reading the Wikivoyage guide…")
+                    Text("Loading this place…")
                 }
             }
             else -> Box(Modifier.fillMaxSize().padding(padding).padding(32.dp), contentAlignment = Alignment.Center) {
@@ -213,6 +213,8 @@ private fun PlaceContent(
 
         if (place.summary.isNotBlank()) {
             Text(place.summary.take(900) + if (place.summary.length > 900) "…" else "", style = MaterialTheme.typography.bodyMedium)
+        } else {
+            com.packfare.app.ui.components.PlaceBlurb(query = "${place.title} India", subject = place.title, maxLines = 6)
         }
 
         Button(
@@ -230,7 +232,7 @@ private fun PlaceContent(
         ) { Text("Read the full guide on Wikivoyage") }
 
         Text(
-            "Guide text and prices from Wikivoyage contributors, licensed CC BY-SA 4.0. " +
+            "Guide text and prices from Wikivoyage and Wikipedia contributors, licensed CC BY-SA. " +
                 (if (place.fromCache) "Saved on your phone " else "Updated ") +
                 DateFormat.getDateInstance(DateFormat.MEDIUM).format(Date(place.fetchedAt)) + ".",
             style = MaterialTheme.typography.labelSmall,
@@ -404,7 +406,7 @@ private fun PriceBasisNote(stats: com.packfare.app.explore.PriceStats) {
     Text(
         if (stats.sampleCount > 0) {
             buildString {
-                append("Based on ${stats.sampleCount} prices in Wikivoyage listings")
+                append("Based on ${stats.sampleCount} listed prices")
                 stats.dormMedianPaise?.let { append(" · dorm beds ~${Money.format(it)}") }
                 stats.midRoomMedianPaise?.let { append(" · mid-range rooms ~${Money.format(it)}") }
                 stats.splurgeRoomMedianPaise?.let { append(" · splurge rooms ~${Money.format(it)}") }
@@ -446,8 +448,7 @@ private fun ActivitiesCard(place: PlaceInfo) {
                 }
             }
             Text(
-                "Per person, approximate. \"Plan a trip here\" spreads these over your days. " +
-                    "Foreign visitors often pay more at parks and monuments.",
+                "Per person, approximate. \"Plan a trip here\" spreads these over your days.",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

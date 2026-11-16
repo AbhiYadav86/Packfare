@@ -288,3 +288,15 @@ app/src/main/java/com/packfare/app/
 - Home: the search box is now a real text field with a **Go** button; it opens Discover with your search applied.
 - Home shows the app version, so you can confirm which build is installed.
 - Affiliate links (Travelpayouts offers exist for Agoda and Booking.com) are not wired yet; plain links earn nothing.
+
+## v0.17.0
+- Discover: the dot map is gone. "Browse by price" lists popular places by Cheap / Mid / Pricey, cheapest first, and Near me lists the closest places.
+- Trip Today plan now uses real See/Do listings from Wikivoyage (named places, short description, opening hours) instead of generic filler; typical ideas only top up thin lists.
+- Trip screen: Bill, Activity and Expense sit in one bottom row with matching buttons.
+
+## v0.18.0
+- Short descriptions for places and activities from Wikipedia intros (cached, offline-safe, only shown when the article clearly matches). One credit line, no per-item citations.
+
+## v0.19.0
+- Trip Route tab rebuilt like Hotels: each hop has a per-person budget, Train / Bus / Flight / Taxi options with fare, time and group total, options that fit highlighted, "Use this" to put one in the plan, and booking links per kind (IRCTC, 12Go, redBus, Google Flights, Skyscanner, ixigo, MakeMyTrip, Savaari, Ola Outstation).
+- New Private taxi mode (outstation cab estimate, up to 4 people a car).

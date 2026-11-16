@@ -174,7 +174,7 @@ fun TripPlanCard(
             }
             Text(
                 "Prices are estimates per person. Ideas marked \"est.\" are guessed from the kind of place. " +
-                    "Foreign visitors often pay more at monuments and parks. Photos appear when you're online.",
+                    "Photos appear when you're online. Place details: Wikivoyage and Wikipedia contributors, CC BY-SA.",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -190,7 +190,9 @@ private fun SuggestionRow(place: String, idea: ActivityIdea, added: Boolean, onA
             Text(idea.name, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
             Text(idea.costLabel, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.primary)
             if (idea.note.isNotBlank()) {
-                Text(idea.note, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(idea.note, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 3)
+            } else {
+                com.packfare.app.ui.components.PlaceBlurb(query = "${idea.name} $place", subject = idea.name)
             }
         }
         if (added) Text("Added ✓", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)

@@ -19,6 +19,7 @@ enum class TransportMode(val label: String, val emoji: String, val offered: Bool
     BUS_STATE("State bus", "🚌", offered = false),
     BUS_AC_SLEEPER("AC bus", "🚌"),
     SHARED_JEEP("Shared jeep/taxi", "🚙"),
+    TAXI("Private taxi", "🚕"),
     FLIGHT("Flight", "✈️"),
     FERRY("Ferry", "⛴️"),
     OTHER("Other", "🧭");

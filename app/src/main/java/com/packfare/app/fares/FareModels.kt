@@ -189,6 +189,13 @@ object BookingLinks {
         }
     }
 
+    /** Outstation taxi sites (they open the site; enter the route there) and a search for local operators. */
+    fun taxiLinks(from: Destination, to: Destination, date: LocalDate): List<Pair<String, String>> = listOf(
+        "Savaari" to "https://www.savaari.com/outstation-cabs",
+        "Ola Outstation" to "https://www.olacabs.com/outstation",
+        "Search" to google("outstation taxi ${from.name.substringBefore(" (")} to ${to.name.substringBefore(" (")} ${date.format(human)}"),
+    )
+
     // ---- Stays ----
 
     /** Booking.com search for the town and dates; group_adults and room count from the plan. */

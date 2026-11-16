@@ -93,6 +93,16 @@ class ExploreRepository(
         return Activities.ideasFor(destination, guide)
     }
 
+    /** Just the guide's See/Do listings for a hub (no typical filler), from the cache or the network when allowed. */
+    suspend fun guideListings(destination: Destination, allowNetwork: Boolean): List<ActivityIdea> {
+        val cached = dao.cachedPlace(destination.wikivoyage) ?: dao.cachedPlace(destination.name)
+        return when {
+            cached != null -> WikivoyageParser.activities(cached.wikitext)
+            allowNetwork -> runCatching { place(destination.wikivoyage)?.guideActivities }.getOrNull().orEmpty()
+            else -> emptyList()
+        }
+    }
+
     /** The guide's priced places to sleep, cheapest first. Uses the cached article, or fetches it when allowed. */
     suspend fun stays(destination: Destination, allowNetwork: Boolean): List<PriceSample> {
         val cached = dao.cachedPlace(destination.wikivoyage) ?: dao.cachedPlace(destination.name)

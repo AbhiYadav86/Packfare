@@ -90,8 +90,10 @@ fun HotelsTab(
             val checkOut = checkIn.plusDays(nights.toLong())
             val units = HotelBudget.units(people, style.rooms, sharing = people > 1)
             val planned = items.firstOrNull { it.key == "stay$i" }?.plannedPaise
-            val defaultCap = if (planned != null && planned > 0) HotelBudget.nightlyCapPaise(planned, nights, units)
-            else if (style.rooms) place.baseline.roomPaise(style) else place.baseline.stayPaise
+            val typical = if (style.rooms) place.baseline.roomPaise(style) else place.baseline.stayPaise
+            val fromPlan = if (planned != null && planned > 0) HotelBudget.nightlyCapPaise(planned, nights, units) else null
+            // The plan's figure is used only when it's believable for this kind of stay; otherwise the typical price.
+            val defaultCap = fromPlan?.takeIf { it in typical / 2..typical * 3 } ?: typical
             var capText by remember(place.name, defaultCap) { mutableStateOf((defaultCap / 100).toString()) }
             val cap = (Money.parse(capText) ?: defaultCap).coerceAtLeast(0L)
             val unitLabel = if (style.rooms) "room" else "bed"
@@ -113,7 +115,7 @@ fun HotelsTab(
                         label = { Text("My budget per $unitLabel per night") },
                         prefix = { Text("₹ ") },
                         supportingText = {
-                            Text(if (planned != null && planned > 0) "Starts from what your plan set aside for this stay." else "Starts from the typical price for ${style.label}.")
+                            Text("Change it to see which places fit.")
                         },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         modifier = Modifier.fillMaxWidth(),
@@ -140,28 +142,47 @@ fun HotelsTab(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
 
-                    val listings = stays[place.name].orEmpty().filter { style.rooms.not() || !it.isDorm }.take(10)
+                    val listings = stays[place.name].orEmpty().filter { style.rooms.not() || !it.isDorm }.take(14)
                     if (listings.isNotEmpty()) {
-                        Text("From the guide", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 4.dp))
-                        listings.forEach { l ->
-                            val fits = HotelBudget.fits(l.pricePaise, cap)
+                        val (fit, over) = listings.partition { HotelBudget.fits(it.pricePaise, cap) }
+                        Text(
+                            "${fit.size} of ${listings.size} fit ${Money.format(cap)} a night",
+                            style = MaterialTheme.typography.titleSmall,
+                            modifier = Modifier.padding(top = 4.dp),
+                        )
+                        if (fit.isEmpty()) {
+                            Text(
+                                "Nothing listed this cheap. The lowest is ${Money.format(listings.minOf { it.pricePaise })}.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                        fit.forEach { l ->
                             Row(
                                 Modifier
                                     .fillMaxWidth()
                                     .clip(RoundedCornerShape(10.dp))
-                                    .background(if (fits) MaterialTheme.colorScheme.primaryContainer else androidx.compose.ui.graphics.Color.Transparent)
+                                    .background(MaterialTheme.colorScheme.primaryContainer)
                                     .padding(horizontal = 10.dp, vertical = 8.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 Column(Modifier.weight(1f)) {
-                                    Text(l.name + if (l.isDorm) " (dorm)" else "", style = MaterialTheme.typography.bodyMedium, fontWeight = if (fits) FontWeight.SemiBold else FontWeight.Normal)
-                                    Text(
-                                        if (fits) "✓ Fits your budget" else "${Money.format(l.pricePaise - cap)} over budget",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = if (fits) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
+                                    Text(l.name + if (l.isDorm) " (dorm)" else "", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                                    Text("✓ Fits your budget", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
                                 }
                                 Text(Money.format(l.pricePaise), fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+                        if (over.isNotEmpty()) {
+                            Text("Over your budget", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 6.dp))
+                            over.forEach { l ->
+                                Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Column(Modifier.weight(1f)) {
+                                        Text(l.name + if (l.isDorm) " (dorm)" else "", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                        Text("${Money.format(l.pricePaise - cap)} over", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
+                                    Text(Money.format(l.pricePaise), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                }
                             }
                         }
                     } else {

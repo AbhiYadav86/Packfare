@@ -447,8 +447,7 @@ private fun ItinerarySection(
                     fontWeight = FontWeight.Medium,
                 )
                 Text(
-                    "Prices are approximate and change by season. \"Typical\" ideas are ranges for this kind of place, not quotes. " +
-                        "Foreign visitors often pay more at monuments and parks.",
+                    "Prices are approximate and change by season. \"Typical\" ideas are ranges for this kind of place, not quotes.",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -657,7 +656,7 @@ private fun StaysTab(vm: PlanTripViewModel, s: BudgetSuggestion?) {
         }
     }
     Text(
-        "Room prices are typical for the town; Wikivoyage listings refine them when you've opened the place in Explore.",
+        "Room prices are typical for the town; they get more accurate once you've opened the place in Discover.",
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )

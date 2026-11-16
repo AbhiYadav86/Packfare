@@ -6,6 +6,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.Row
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
@@ -126,27 +132,37 @@ fun TripDetailScreen(
                 },
             )
         },
-        floatingActionButton = {
-            when (currentTab) {
-                TripTab.TODAY, TripTab.EXPENSES -> if (state.members.isNotEmpty()) {
-                    Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        if (currentTab == TripTab.TODAY) {
-                            ExtendedFloatingActionButton(
-                                onClick = { addingActivity = true },
-                                icon = { Icon(Icons.Filled.Add, contentDescription = null) },
-                                text = { Text("Add activity") },
-                            )
+        bottomBar = {
+            if ((currentTab == TripTab.TODAY || currentTab == TripTab.EXPENSES) && state.members.isNotEmpty()) {
+                androidx.compose.material3.Surface(tonalElevation = 3.dp) {
+                    Row(
+                        Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 12.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        val shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp)
+                        val pad = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 12.dp)
+                        androidx.compose.material3.FilledTonalButton(onClick = { onAddExpense(true) }, modifier = Modifier.weight(1f), shape = shape, contentPadding = pad) {
+                            Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("Bill", maxLines = 1)
                         }
-                        SmallFloatingActionButton(onClick = { onAddExpense(true) }) {
-                            Text("🧾", style = MaterialTheme.typography.titleMedium)
+                        androidx.compose.material3.FilledTonalButton(onClick = { addingActivity = true }, modifier = Modifier.weight(1f), shape = shape, contentPadding = pad) {
+                            Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("Activity", maxLines = 1)
                         }
-                        ExtendedFloatingActionButton(
-                            onClick = { onAddExpense(false) },
-                            icon = { Icon(Icons.Filled.Add, contentDescription = null) },
-                            text = { Text("Add expense") },
-                        )
+                        androidx.compose.material3.FilledTonalButton(onClick = { onAddExpense(false) }, modifier = Modifier.weight(1f), shape = shape, contentPadding = pad) {
+                            Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(4.dp))
+                            Text("Expense", maxLines = 1)
+                        }
                     }
                 }
+            }
+        },
+        floatingActionButton = {
+            when (currentTab) {
+                TripTab.TODAY, TripTab.EXPENSES -> Unit
                 TripTab.ROUTE -> ExtendedFloatingActionButton(
                     onClick = { addingLeg = true },
                     icon = { Icon(Icons.Filled.Add, contentDescription = null) },
@@ -209,8 +225,12 @@ fun TripDetailScreen(
                 )
                 TripTab.ROUTE -> RouteTab(
                     state,
+                    foreignVisitor = foreignVisitor,
                     onEditLeg = { legDialog = it },
                     onFindFares = { leg -> onFindFares(leg.fromName, leg.toName, leg.dateEpochDay) },
+                    onChoose = { leg, o ->
+                        vm.saveLeg(leg.copy(mode = o.mode.name, farePaise = o.perPersonPaise, hours = o.hours, overnight = o.overnight))
+                    },
                 )
                 TripTab.BALANCES -> BalancesTab(state, onMarkSettled = vm::markSettled)
                 TripTab.PEOPLE -> PeopleTab(state, onPersonClick = { editingPerson = it })
