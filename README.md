@@ -63,8 +63,10 @@ right-click `app/src/test` > Run Tests, or `./gradlew test`.
 3. On your phone, open the repo's **Releases** page, download the newest `Packfare-…apk` and open it
    (allow "install unknown apps" for your browser when asked).
 
-Optional: add `TRAVELPAYOUTS_TOKEN` and `TRAVELPAYOUTS_MARKER` under *Settings → Secrets and variables →
-Actions* so test builds have live flight prices and your affiliate ID.
+Optional: add `TRAVELPAYOUTS_TOKEN`, `TRAVELPAYOUTS_MARKER`, `TRAVELPAYOUTS_PROMO_12GO`,
+`TRAVELPAYOUTS_PROMO_AGODA` and `TRAVELPAYOUTS_PROMO_BOOKING` under *Settings → Secrets and variables →
+Actions* so test builds have live flight prices and tracked booking links. The workflow also writes an
+APK size breakdown to each run's summary.
 
 All test builds (CI and Android Studio) are signed with the bundled test key `app/packfare-test.jks`, so
 each new APK installs over the last one. Before publishing on the Play Store, create a private release key.
@@ -212,6 +214,9 @@ each new APK installs over the last one. Before publishing on the Play Store, cr
    travelpayouts.token=YOUR_TOKEN
    travelpayouts.marker=YOUR_MARKER
    ```
+   (From v0.21 also add `travelpayouts.promo12go`, `travelpayouts.promoAgoda` and `travelpayouts.promoBooking`
+   with the promo ID of each program, so 12Go, Agoda and Booking.com links are tracked. Leave a line empty
+   and that program's links stay plain.)
 4. Rebuild. The Fares tab will say "Live flight prices: on".
 
 Notes: these are real fares travellers found in the last few days (cached up to 7 days), not a live seat
@@ -263,7 +268,7 @@ app/src/main/java/com/packfare/app/
   vault/         Vault: Keystore-backed AES-GCM file encryption
   receipt/       ReceiptParser, ReceiptScanner (ML Kit), ReceiptStorage
   data/          Room entities (trips, members, legs, expenses, shares, cash, documents, place cache), DAOs
-  fares/         FareModels (pure: picker, booking links), TravelpayoutsFlights, FareSearch
+  fares/         FareModels (pure: picker, booking links), Affiliate (tracked links), TravelpayoutsFlights, FareSearch
   ui/home/       Bottom navigation: Trips, Explore, Fares, How long?, Vault
   ui/fares/      Fare search screen
   ui/components/ PackfareMap (MapLibre wrapper), donut chart, avatars, budget bar
@@ -283,20 +288,35 @@ app/src/main/java/com/packfare/app/
   shareable trip card (10), states collected (11), safety basics (12)
 - Home-currency display for international travellers
 
-## v0.16.0
-- Trip page: new **Hotels** tab per stop with Booking.com (opens filtered to your nightly budget), Agoda and Google Hotels links, plus the guide's priced places to sleep. Places that fit the budget are highlighted.
-- Home: the search box is now a real text field with a **Go** button; it opens Discover with your search applied.
-- Home shows the app version, so you can confirm which build is installed.
-- Affiliate links (Travelpayouts offers exist for Agoda and Booking.com) are not wired yet; plain links earn nothing.
+## Recent releases (v0.16 – v0.21)
 
-## v0.17.0
-- Discover: the dot map is gone. "Browse by price" lists popular places by Cheap / Mid / Pricey, cheapest first, and Near me lists the closest places.
-- Trip Today plan now uses real See/Do listings from Wikivoyage (named places, short description, opening hours) instead of generic filler; typical ideas only top up thin lists.
-- Trip screen: Bill, Activity and Expense sit in one bottom row with matching buttons.
+### v0.21.0
+- Affiliate tracking for 12Go, Agoda and Booking.com links: set your Travelpayouts marker and the three promo IDs in `local.properties` or GitHub secrets (see "Turning on live flight prices"). Without them links stay plain. Code: `fares/Affiliate.kt`.
 
-## v0.18.0
+### v0.20.0
+- Trip Today: a large **"left after your plan"** figure at the top (trip budget minus bookings, bills and the activities you still plan to do, for everyone in the group), with the daily allowance under it. The separate card at the bottom is gone.
+- Weather strip: a 7-day forecast (Open-Meteo, free, no key) at the top of Today, cached for offline use.
+- Tap an activity for a popup with its photo, cost, a short Wikivoyage or Wikipedia write-up and Add / Remove.
+
+### v0.19.0
+- Trip **Route** tab rebuilt like Hotels: each hop has a per-person budget, Train / Bus / Flight / Taxi options with fare, time and group total, options that fit highlighted, "Use this" to put one in the plan, and booking links per kind (IRCTC, 12Go, redBus, Google Flights, Skyscanner, ixigo, MakeMyTrip, Savaari, Ola Outstation).
+- New Private taxi mode (outstation cab estimate, up to 4 people a car).
+
+### v0.18.1
+- Hotels: the budget per bed per night now really splits the guide's places into "fits" and "over your budget".
+- Removed the foreign-visitor price disclaimers; entry-fee ranges for forts and monuments are wider.
+
+### v0.18.0
 - Short descriptions for places and activities from Wikipedia intros (cached, offline-safe, only shown when the article clearly matches). One credit line, no per-item citations.
 
-## v0.19.0
-- Trip Route tab rebuilt like Hotels: each hop has a per-person budget, Train / Bus / Flight / Taxi options with fare, time and group total, options that fit highlighted, "Use this" to put one in the plan, and booking links per kind (IRCTC, 12Go, redBus, Google Flights, Skyscanner, ixigo, MakeMyTrip, Savaari, Ola Outstation).
-- New Private taxi mode (outstation cab estimate, up to 4 people a car).
+### v0.17.x
+- Discover: the dot map is gone. "Browse by price" lists popular places by Cheap / Mid / Pricey, cheapest first, and Near me lists the closest places.
+- Trip Today plan uses real See/Do listings from Wikivoyage (named places, short description, opening hours) instead of generic filler; typical ideas only top up thin lists.
+- Trip screen: Bill, Activity and Expense sit in one bottom row with matching buttons. The Wikivoyage credit is one line.
+
+### v0.16.0
+- Trip page: new **Hotels** tab per stop with Booking.com (opens filtered to your nightly budget), Agoda and Google Hotels links, plus the guide's priced places to sleep. Places that fit the budget are highlighted.
+- Home: the search box is a real text field with a **Go** button; it opens Discover with your search applied. Home shows the app version.
+
+### Coming next
+Planned for v0.22 onward: world-wide places and currencies, global flight/train/bus/taxi options with a visa card, a time-aware daily calendar that adapts to your arrival time, and next-step reminders. The plan is in the shared "Packfare 1.0" document.
